@@ -3,6 +3,8 @@
 
 تشتغل على جهازك فقط (127.0.0.1) — ما يطلع منها أي ملف للإنترنت.
 """
+import hmac
+import os
 import shutil
 import sys
 import tempfile
@@ -12,7 +14,7 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, Response, jsonify, render_template, request, send_file
 
 for stream in (sys.stdout, sys.stderr):
     try:
@@ -41,6 +43,31 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True  # عشان أي تعديل على ا
 
 SESSIONS = {}
 _lock = threading.Lock()
+
+# ————— حماية بكلمة مرور —————
+# تُفعّل تلقائياً لما نشغّل النفق العام. محلياً (127.0.0.1) ما تحتاجها.
+PASSWORD = os.environ.get("INVOICE_PASSWORD", "").strip()
+USERNAME = os.environ.get("INVOICE_USER", "admin").strip()
+
+
+@app.before_request
+def require_password():
+    """يطلب كلمة المرور إذا كان البرنامج مكشوفاً على الإنترنت."""
+    if not PASSWORD:
+        return None  # تشغيل محلي — بدون كلمة مرور
+    auth = request.authorization
+    # hmac.compare_digest يمنع تخمين كلمة المرور عن طريق قياس زمن المقارنة
+    if (
+        auth
+        and hmac.compare_digest(auth.username or "", USERNAME)
+        and hmac.compare_digest(auth.password or "", PASSWORD)
+    ):
+        return None
+    return Response(
+        "يحتاج كلمة مرور",
+        401,
+        {"WWW-Authenticate": 'Basic realm="فاحص الفواتير"'},
+    )
 
 
 def _session(sid):

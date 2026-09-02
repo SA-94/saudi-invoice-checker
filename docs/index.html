@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فاحص الفواتير الضريبية</title>
+<meta name="description" content="يفحص الفواتير الضريبية السعودية عبر باركود الزاتكا ويصدّر البيانات إلى إكسل. يشتغل داخل متصفحك بالكامل.">
+<style>
+:root{
+  --bg:#f6f6f3; --card:#fff; --line:#e3e3dd; --line-soft:#efefe9;
+  --ink:#1c1c1a; --ink-soft:#6b6b63; --ink-faint:#9a9a90;
+  --accent:#0f6b7d; --accent-soft:#e6f2f4;
+  --ok:#15803d; --ok-bg:#dcfce7; --ok-line:#86efac;
+  --warn:#b45309; --warn-bg:#fef3c7; --warn-line:#fcd34d;
+  --bad:#b91c1c; --bad-bg:#fee2e2; --bad-line:#fca5a5;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#171715; --card:#211f1d; --line:#38352f; --line-soft:#2b2926;
+    --ink:#f2f0eb; --ink-soft:#a8a49b; --ink-faint:#736f66;
+    --accent:#4fb3c8; --accent-soft:#153037;
+    --ok:#6ee7a0; --ok-bg:#0f2e1d; --ok-line:#1f6b40;
+    --warn:#fbbf24; --warn-bg:#33260a; --warn-line:#7c5a10;
+    --bad:#fca5a5; --bad-bg:#3a1616; --bad-line:#8a2c2c;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Segoe UI","Noto Sans Arabic",Tahoma,Arial,sans-serif;
+  font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1440px;margin:0 auto;padding:32px 24px 80px}
+header{margin-bottom:26px}
+h1{font-size:27px;font-weight:700;margin:0 0 6px;letter-spacing:-.2px}
+.sub{color:var(--ink-soft);margin:0}
+.sub b{color:var(--ink);font-weight:600}
+
+.drop{background:var(--card);border:2px dashed var(--line);border-radius:14px;
+  padding:52px 24px;text-align:center;cursor:pointer;transition:.15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop-icon{font-size:40px;line-height:1;margin-bottom:12px;opacity:.75}
+.drop-main{font-size:17px;font-weight:600;margin-bottom:6px}
+.drop-hint{color:var(--ink-soft);font-size:13.5px}
+#picker{display:none}
+
+.busy{display:none;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;padding:26px;text-align:center;box-shadow:var(--shadow)}
+.busy.on{display:block}
+.bar{height:5px;background:var(--line-soft);border-radius:99px;overflow:hidden;margin-top:14px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:99px;
+  width:0;transition:width .2s}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:26px 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:16px 18px;box-shadow:var(--shadow)}
+.card .n{font-size:30px;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
+.card .t{color:var(--ink-soft);font-size:13.5px;margin-top:2px}
+.card.ok .n{color:var(--ok)} .card.warn .n{color:var(--warn)} .card.bad .n{color:var(--bad)}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+button{font:inherit;font-size:14px;font-weight:600;cursor:pointer;border-radius:9px;
+  padding:9px 17px;border:1px solid var(--line);background:var(--card);color:var(--ink);transition:.13s}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{opacity:.88;color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+.spacer{flex:1}
+
+.tablebox{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  overflow:hidden;box-shadow:var(--shadow)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:1240px}
+th{background:var(--line-soft);color:var(--ink-soft);font-weight:600;font-size:12.5px;
+  text-align:right;padding:11px 10px;white-space:nowrap;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line-soft);vertical-align:middle;white-space:nowrap}
+td.wrapname{white-space:normal;min-width:130px}
+tbody tr.main{cursor:pointer;transition:background .12s}
+tbody tr.main:hover,tr.main.open{background:var(--accent-soft)}
+.num{font-variant-numeric:tabular-nums;text-align:left;direction:ltr}
+.mono{font-family:"Cascadia Mono",Consolas,monospace;font-size:12.5px;direction:ltr;text-align:left}
+.fname{max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--ink-soft);font-size:12.5px}
+.caret{display:inline-block;transition:transform .18s;color:var(--ink-faint);font-size:11px}
+tr.main.open .caret{transform:rotate(-90deg)}
+
+.pill{display:inline-block;padding:3px 11px;border-radius:99px;font-size:12.5px;
+  font-weight:600;white-space:nowrap;border:1px solid}
+.pill.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.pill.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.pill.bad{background:var(--bad-bg);color:var(--bad);border-color:var(--bad-line)}
+.miss{color:var(--bad);font-size:12px;font-weight:600;background:var(--bad-bg);
+  border:1px solid var(--bad-line);border-radius:5px;padding:1px 8px}
+.tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:11px;font-weight:600;
+  background:var(--accent-soft);color:var(--accent);margin-inline-start:6px}
+.opt{font-weight:400;color:var(--ink-faint);font-size:11.5px}
+
+tr.detail>td{padding:0;background:var(--bg);border-bottom:1px solid var(--line)}
+.panel{display:grid;grid-template-columns:280px 1fr;gap:22px;padding:22px 24px}
+@media (max-width:820px){.panel{grid-template-columns:1fr}}
+.preview{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--card);
+  max-height:330px;display:flex;align-items:center;justify-content:center}
+.preview img{width:100%;height:auto;max-height:330px;object-fit:contain;display:block}
+h4{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--ink-soft)}
+.alerts{list-style:none;margin:0 0 20px;padding:0}
+.alerts li{background:var(--bad-bg);border:1px solid var(--bad-line);color:var(--bad);
+  border-radius:8px;padding:9px 13px;margin-bottom:7px;font-size:13.5px}
+.alerts li.soft{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-bottom:16px}
+label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:4px;font-weight:600}
+input{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card);color:var(--ink);font:inherit;font-size:14px}
+input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+input.locked{background:var(--line-soft);color:var(--ink-soft)}
+.section{margin-bottom:18px}
+.note{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.chk{font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink-soft)}
+.chk.y{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+.chk.n{background:var(--bad-bg);border-color:var(--bad-line);color:var(--bad)}
+.err{background:var(--bad-bg);border:1px solid var(--bad-line);color:var(--bad);
+  border-radius:10px;padding:13px 16px;margin-bottom:16px;font-size:14px;display:none}
+.err.on{display:block}
+.hidden{display:none}
+footer{margin-top:34px;color:var(--ink-faint);font-size:12.5px;text-align:center}
+footer a{color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>فاحص الفواتير الضريبية</h1>
+    <p class="sub">يقرأ <b>باركود الزاتكا</b> ويستخرج بيانات المورد والمبالغ بدقة كاملة، ويفحص اكتمال الفاتورة.</p>
+  </header>
+
+  <div class="err" id="err"></div>
+
+  <div class="drop" id="drop">
+    <div class="drop-icon">🧾</div>
+    <div class="drop-main">اسحب الفواتير هنا</div>
+    <div class="drop-hint">أو اضغط للاختيار &nbsp;·&nbsp; JPG، PNG، WEBP، PDF &nbsp;·&nbsp; تقدر تسحب مجلد كامل</div>
+    <input type="file" id="picker" multiple accept="image/*,.pdf">
+  </div>
+
+  <div class="busy" id="busy">
+    <div id="busyText">أقرأ الفواتير…</div>
+    <div class="bar"><i id="barFill"></i></div>
+  </div>
+
+  <div id="results" class="hidden">
+    <div class="cards">
+      <div class="card"><div class="n" id="cTotal">0</div><div class="t">فاتورة</div></div>
+      <div class="card ok"><div class="n" id="cOk">0</div><div class="t">سليمة</div></div>
+      <div class="card warn"><div class="n" id="cWarn">0</div><div class="t">تحتاج مراجعة</div></div>
+      <div class="card bad"><div class="n" id="cBad">0</div><div class="t">ناقصة</div></div>
+    </div>
+
+    <div class="toolbar">
+      <button class="primary" id="btnExcel">⬇ تحميل ملف الإكسل</button>
+      <button id="btnMore">+ إضافة فواتير</button>
+      <div class="spacer"></div>
+      <button id="btnReset">مسح والبدء من جديد</button>
+    </div>
+
+    <div class="tablebox"><div class="scroll"><table>
+      <thead><tr>
+        <th style="width:34px"></th>
+        <th style="width:112px">الحالة</th>
+        <th>تاريخ الفاتورة</th>
+        <th>اسم المورد</th>
+        <th>الرقم الضريبي للمورد</th>
+        <th>قبل الضريبة</th>
+        <th>الضريبة</th>
+        <th>شامل الضريبة</th>
+        <th>اسم الجمعية</th>
+        <th>الرقم الضريبي للجمعية</th>
+        <th>رقم الفاتورة</th>
+        <th>الملف</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div></div>
+  </div>
+
+  <footer>
+    كل شي يتم داخل متصفحك — ما تُرفع أي فاتورة لأي خادم.<br>
+    <a href="https://github.com/SA-94/saudi-invoice-checker">الكود على GitHub</a>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.3/dist/iife/reader/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+/* ═══════════ إعدادات ═══════════ */
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+// zxing-wasm هو نفس محرك zxing-cpp المستخدم في نسخة بايثون —
+// أقوى وأسرع بكثير من jsQR، وjsQR يبقى احتياطياً لو تعذّر تحميل الـ WASM.
+const ZXING_WASM = "https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.3/dist/reader/zxing_reader.wasm";
+if (window.ZXingWASM) {
+  ZXingWASM.prepareZXingModule({
+    overrides: {locateFile: (path, prefix) =>
+      path.endsWith(".wasm") ? ZXING_WASM : prefix + path},
+    fireImmediately: true,
+  });
+}
+
+const OK = "سليمة", REVIEW = "تحتاج مراجعة", MISSING = "ناقصة";
+const CLS = {[OK]:"ok", [REVIEW]:"warn", [MISSING]:"bad"};
+
+const FIELDS = [
+  ["invoice_date",   "تاريخ الفاتورة",         true],
+  ["seller_name",    "اسم المورد",             true],
+  ["seller_vat",     "الرقم الضريبي للمورد",   true],
+  ["net_amount",     "المبلغ قبل الضريبة",     true],
+  ["vat_amount",     "الضريبة",                true],
+  ["total_amount",   "المبلغ شامل الضريبة",    true],
+  ["buyer_name",     "اسم الجمعية",            true],
+  ["buyer_vat",      "الرقم الضريبي للجمعية",  true],
+  ["invoice_no",     "رقم الفاتورة",           true],
+  ["invoice_title",  "اسم الفاتورة",           true],
+  ["seller_address", "عنوان المورد",           false],
+  ["buyer_address",  "عنوان الجمعية",          false],
+];
+const LABEL = Object.fromEntries(FIELDS.map(f => [f[0], f[1]]));
+const REQUIRED = FIELDS.filter(f => f[2]).map(f => f[0]);
+const OPTIONAL = FIELDS.filter(f => !f[2]).map(f => f[0]);
+
+const VAT_RATES = [0.15, 0.05, 0];
+const TOLERANCE = 0.02;
+
+/* ═══════════ أدوات نصية ═══════════ */
+const AR_DIGITS = {"٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9",
+  "۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٫":".","٬":","};
+
+const normDigits = s => String(s).replace(/[٠-٩۰-۹٫٬]/g, c => AR_DIGITS[c] || c);
+
+function cleanText(v){
+  if (v === null || v === undefined) return null;
+  const t = String(v).normalize("NFKC")
+    .replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, "")
+    .replace(/\s+/g, " ").trim();
+  return t || null;
+}
+
+/** يحوّل أي صيغة مبلغ إلى رقم. يتعامل مع ١٬١٥٠٫٠٠ ر.س و 1.234,56 و (500.00) */
+function parseAmount(v){
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "number") return v;
+  const text = normDigits(cleanText(v) || "");
+  const negative = /^\s*\(.*\)\s*$/.test(text);
+  // نلقط الأرقام بدل ما نشيل الحروف — عشان لا تتسرّب نقطة «ر.س»
+  const tokens = (text.match(/\d[\d.,]*/g) || [])
+    .map(t => t.replace(/^[.,]+|[.,]+$/g, "")).filter(Boolean);
+  if (!tokens.length) return null;
+  let token = tokens.reduce((a, b) => b.length > a.length ? b : a);
+
+  if (token.includes(",") && token.includes(".")) {
+    token = token.lastIndexOf(".") > token.lastIndexOf(",")
+      ? token.replace(/,/g, "") : token.replace(/\./g, "").replace(",", ".");
+  } else if (token.includes(",")) {
+    const parts = token.split(",");
+    token = token.replace(/,/g, (parts.length === 2 && [1,2].includes(parts[1].length)) ? "." : "");
+  } else if ((token.match(/\./g) || []).length > 1) {
+    token = token.replace(/\./g, "");
+  }
+  const n = parseFloat(token);
+  if (isNaN(n)) return null;
+  return (negative || /-\s*\d/.test(text)) ? -Math.abs(n) : n;
+}
+
+/** الرقم الضريبي السعودي: 15 رقم يبدأ بـ3 وينتهي بـ3 */
+const vatDigits = v => v ? (normDigits(v).replace(/\D/g, "") || null) : null;
+function validVat(v){
+  const d = vatDigits(v);
+  return !!d && d.length === 15 && d[0] === "3" && d[14] === "3";
+}
+
+const MONTHS = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+function formatDate(v){
+  if (!v) return null;
+  const text = normDigits(cleanText(v) || "");
+  let m = text.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (m) return `${m[1]}-${String(+m[2]).padStart(2,"0")}-${String(+m[3]).padStart(2,"0")}`;
+  m = text.match(/(\d{1,2})[-/\s]([A-Za-z]{3})[A-Za-z]*[-/\s](\d{4})/);
+  if (m && MONTHS[m[2].toLowerCase()])
+    return `${m[3]}-${String(MONTHS[m[2].toLowerCase()]).padStart(2,"0")}-${String(+m[1]).padStart(2,"0")}`;
+  m = text.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (m) {
+    let [, d, mo, y] = m;
+    if (+mo > 12 && +d <= 12) [d, mo] = [mo, d];
+    return `${y}-${String(+mo).padStart(2,"0")}-${String(+d).padStart(2,"0")}`;
+  }
+  return text;
+}
+
+/* ═══════════ باركود الزاتكا ═══════════
+   نص Base64 بصيغة TLV: [وسم][طول][قيمة]…
+   1=اسم البائع 2=الرقم الضريبي 3=التاريخ 4=الإجمالي 5=الضريبة        */
+function decodeTLV(b64){
+  if (!b64 || b64.length < 16) return null;
+  let raw;
+  try {
+    const bin = atob(b64.trim());
+    raw = Uint8Array.from(bin, c => c.charCodeAt(0));
+  } catch { return null; }
+
+  const fields = {};
+  const decoder = new TextDecoder("utf-8", {fatal:true});
+  let i = 0;
+  while (i + 2 <= raw.length) {
+    const tag = raw[i], len = raw[i+1];
+    if (i + 2 + len > raw.length) return null;   // طول غير منطقي — مو TLV
+    if (!(tag in fields)) {
+      const bytes = raw.slice(i+2, i+2+len);
+      try { fields[tag] = decoder.decode(bytes).trim(); }
+      catch { fields[tag] = [...bytes].map(b => b.toString(16).padStart(2,"0")).join(""); }
+    }
+    i += 2 + len;
+  }
+  return (fields[1] && fields[2]) ? fields : null;
+}
+
+/* ═══════════ قراءة الباركود من الصورة ═══════════ */
+function imageDataFrom(source, scale, transform){
+  const w = Math.round(source.width * scale), h = Math.round(source.height * scale);
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d", {willReadFrequently:true});
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source, 0, 0, w, h);
+  const data = ctx.getImageData(0, 0, w, h);
+  if (transform) transform(data.data);
+  return data;
+}
+
+const toGray = d => { for (let i=0;i<d.length;i+=4){
+  const g = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114)|0; d[i]=d[i+1]=d[i+2]=g; } };
+
+const contrast = f => d => { for (let i=0;i<d.length;i+=4){
+  const g = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114);
+  const v = Math.max(0, Math.min(255, (g-128)*f + 128))|0; d[i]=d[i+1]=d[i+2]=v; } };
+
+function threshold(d){
+  let sum = 0, n = d.length/4;
+  for (let i=0;i<d.length;i+=4) sum += d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+  const mid = sum/n;
+  for (let i=0;i<d.length;i+=4){
+    const g = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+    const v = g > mid ? 255 : 0; d[i]=d[i+1]=d[i+2]=v;
+  }
+}
+
+const ZXING_OPTIONS = {
+  formats: ["QRCode", "MicroQRCode"],   // نحصر البحث — أسرع بكثير
+  tryHarder: true, tryRotate: true, tryInvert: true, tryDownscale: true,
+  maxNumberOfSymbols: 4,
+};
+
+/** يقرأ نصوص الباركودات المربّعة من ImageData. */
+async function readCodes(img){
+  if (window.ZXingWASM) {
+    try {
+      const found = await ZXingWASM.readBarcodesFromImageData(img, ZXING_OPTIONS);
+      const texts = found.filter(b => b.isValid !== false && b.text).map(b => b.text);
+      if (texts.length) return texts;
+    } catch { /* نرجع للاحتياطي */ }
+  }
+  if (window.jsQR) {
+    try {
+      const hit = jsQR(img.data, img.width, img.height, {inversionAttempts:"attemptBoth"});
+      if (hit && hit.data) return [hit.data];
+    } catch { /* لا شيء */ }
+  }
+  return [];
+}
+
+/** تنعيم بسيط 3×3 — يقلّل ضوضاء تصوير الجوال قبل العتبة */
+function denoise(d){
+  const src = new Uint8ClampedArray(d);
+  const w = denoise.width, h = denoise.height;
+  for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++) {
+    let sum = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
+      sum += src[((y+dy)*w + (x+dx))*4];
+    const v = (sum/9)|0, i = (y*w + x)*4;
+    d[i] = d[i+1] = d[i+2] = v;
+  }
+}
+
+// سقف مساحة اللوحة الواحدة — فوقه المتصفح يبطّئ بشكل مؤلم بدون فايدة
+const MAX_PIXELS = 6e6;
+
+/** يقصّ مربعاً من الصورة ويكبّره — بديل تحديد منطقة الباركود */
+function tileData(source, col, row, cols, rows, zoom){
+  const tw = source.width/cols, th = source.height/rows;
+  const pad = 0.25;   // تداخل عشان لا ينقص الباركود على حدّ المربع
+  const sx = Math.max(0, (col-pad)*tw), sy = Math.max(0, (row-pad)*th);
+  const sw = Math.min(source.width-sx, tw*(1+2*pad));
+  const sh = Math.min(source.height-sy, th*(1+2*pad));
+
+  const capped = Math.min(zoom, Math.sqrt(MAX_PIXELS/(sw*sh)));
+  const c = document.createElement("canvas");
+  c.width = Math.round(sw*capped); c.height = Math.round(sh*capped);
+  const ctx = c.getContext("2d", {willReadFrequently:true});
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return ctx.getImageData(0, 0, c.width, c.height);
+}
+
+/** يقرأ باركود زاتكا من صورة. مراحل متدرّجة: الرخيصة أولاً. */
+async function scanQR(source){
+  const longest = Math.max(source.width, source.height);
+  const mid = Math.min(2, 4200/longest);
+  const stages = [
+    [Math.min(1, 2400/longest), null],   // المقاس المعتاد — يكفي لأغلب الفواتير
+    [mid, threshold],                    // للفواتير الحرارية الباهتة
+    [mid, d => {                         // للصور المشوّشة من الجوال
+      denoise.width = Math.round(source.width*mid);
+      denoise.height = Math.round(source.height*mid);
+      toGray(d); denoise(d); threshold(d);
+    }],
+  ];
+  let any = null;
+
+  for (const [scale, transform] of stages) {
+    if (scale <= 0) continue;
+    let img;
+    try { img = imageDataFrom(source, scale, transform); } catch { continue; }
+    for (const text of await readCodes(img)) {
+      const fields = decodeTLV(text);
+      if (fields) return {fields, raw: text};
+      any = any || text;
+    }
+  }
+
+  // الملاذ الأخير: نقسّم الصورة ونكبّر كل مربع — يعوّض عن قصّ منطقة الباركود.
+  // الباركود عادةً في الأطراف، فنبدأ فيها.
+  const order = [[1,2],[0,2],[2,2],[1,0],[0,0],[2,0],[1,1],[0,1],[2,1]];
+  for (const [col, row] of order) {
+    let img;
+    try { img = tileData(source, col, row, 3, 3, 3); } catch { continue; }
+    for (const text of await readCodes(img)) {
+      const fields = decodeTLV(text);
+      if (fields) return {fields, raw: text};
+      any = any || text;
+    }
+  }
+  return {fields: null, raw: any};
+}
+
+/* ═══════════ تحميل الملفات ═══════════ */
+const IMAGE_RE = /\.(jpe?g|png|webp|bmp|gif|tiff?)$/i;
+const PDF_RE = /\.pdf$/i;
+
+function loadImage(file){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => resolve({source: img, url});
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("تعذّر فتح الصورة")); };
+    img.src = url;
+  });
+}
+
+async function loadPdf(file){
+  const buffer = await file.arrayBuffer();
+  const doc = await pdfjsLib.getDocument({data: buffer}).promise;
+  const pages = [];
+  let text = "";
+  const limit = Math.min(doc.numPages, 10);
+  for (let n = 1; n <= limit; n++) {
+    const page = await doc.getPage(n);
+    const content = await page.getTextContent();
+    text += content.items.map(i => i.str).join(" ") + "\n";
+    const viewport = page.getViewport({scale: 2.2});   // ≈ 160 نقطة/بوصة
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({canvasContext: canvas.getContext("2d"), viewport}).promise;
+    pages.push(canvas);
+  }
+  return {pages, text, url: pages.length ? pages[0].toDataURL("image/jpeg", 0.7) : null};
+}
+
+/* ═══════════ استخراج من النص (لملفات PDF) ═══════════ */
+const VAT_LABELED = /(?:الرقم\s*الضريب[يى]|رقم\s*الضريب[ةيى]|tax\s*(?:no|number|reg\w*)|vat\s*(?:no|number|reg\w*)|\bTRN\b|\bVAT\b)[^\d\n]{0,25}((?:\d[\s.-]?){15})/gi;
+const VAT_STRICT = /(?<!\d)3\d{13}3(?!\d)/g;
+
+const INVOICE_NO_RE = [
+  /(?:رقم\s*الفاتورة|فاتورة\s*رقم|رقم\s*المستند)\s*[:\-#]?\s*([A-Za-z0-9\-/_]{3,30})/,
+  /(?:invoice\s*(?:no|number|#)|inv\s*#)\s*[:\-#]?\s*([A-Za-z0-9\-/_]{3,30})/i,
+];
+const TITLE_RE = [
+  [/فاتورة\s*ضريبية\s*مبسطة/, "فاتورة ضريبية مبسطة"],
+  [/فاتورة\s*ضريبية/, "فاتورة ضريبية"],
+  [/simplified\s+tax\s+invoice/i, "Simplified Tax Invoice"],
+  [/tax\s*e?-?\s*invoice/i, "Tax Invoice"],
+];
+const DATE_RE = [
+  /\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})\b/,
+  /\b(\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/,
+  /\b(\d{1,2}[-/\s](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-/\s]\d{4})\b/i,
+];
+const AMT = String.raw`(-?[\d,]+\.\d{2}|-?[\d,]{1,12})`;
+const AMOUNT_RE = {
+  total_amount: [
+    new RegExp(String.raw`(?:الإجمالي|الاجمالي|المجموع)\s*(?:شامل|مع)\s*(?:ال)?ضريبة\D{0,15}` + AMT, "i"),
+    new RegExp(String.raw`(?:grand\s*total|total\s*(?:incl|inc|with)[\w.\s]{0,12}vat|total\s*amount)\D{0,15}` + AMT, "i"),
+  ],
+  vat_amount: [
+    new RegExp(String.raw`(?:مبلغ|قيمة)\s*(?:ال)?ضريبة\D{0,15}` + AMT, "i"),
+    new RegExp(String.raw`(?:vat\s*(?:amount|total)|total\s*vat)\D{0,15}` + AMT, "i"),
+  ],
+  net_amount: [
+    new RegExp(String.raw`(?:المجموع|الإجمالي|الاجمالي|المبلغ)\s*(?:قبل|بدون|غير\s*شامل)\s*(?:ال)?ضريبة\D{0,15}` + AMT, "i"),
+    new RegExp(String.raw`(?:sub\s*total|subtotal|total\s*(?:excl|exc|before)[\w.\s]{0,12}vat|taxable\s*amount)\D{0,15}` + AMT, "i"),
+  ],
+};
+
+function vatNumbers(text){
+  const collect = (re, group) => {
+    const out = [], seen = new Set();
+    let m; re.lastIndex = 0;
+    while ((m = re.exec(text)) !== null) {
+      const d = (m[group] || "").replace(/\D/g, "");
+      if (validVat(d) && !seen.has(d)) { seen.add(d); out.push(d); }
+      if (!re.global) break;
+    }
+    return out;
+  };
+  // الأرقام الملاصقة لتسميتها أوثق بكثير من أي 15 رقم في الصفحة
+  const labeled = collect(new RegExp(VAT_LABELED.source, "gi"), 1);
+  return labeled.length ? labeled : collect(new RegExp(VAT_STRICT.source, "g"), 0);
+}
+
+function extractFromText(text, sellerVat){
+  if (!text || !text.trim()) return {};
+  const flat = normDigits(text);
+  const found = {};
+
+  const vats = vatNumbers(flat);
+  const sellerClean = vatDigits(sellerVat);
+  let others = vats.filter(v => v !== sellerClean);
+  if (!sellerClean && vats.length) { found.seller_vat = vats[0]; others = vats.slice(1); }
+  if (others.length) found.buyer_vat = others[0];
+
+  for (const re of INVOICE_NO_RE) {
+    const m = flat.match(re);
+    if (m) { found.invoice_no = m[1].replace(/^[\s:\-#]+|[\s:\-#]+$/g, ""); break; }
+  }
+  for (const [re, label] of TITLE_RE) if (re.test(flat)) { found.invoice_title = label; break; }
+  for (const re of DATE_RE) { const m = flat.match(re); if (m) { found.invoice_date = m[1]; break; } }
+  for (const [key, list] of Object.entries(AMOUNT_RE))
+    for (const re of list) { const m = flat.match(re); if (m) { found[key] = m[1]; break; } }
+
+  return found;
+}
+
+/* ═══════════ الفحص ═══════════ */
+function check(rec){
+  const alerts = [], checks = {};
+  let hardMissing = false, softIssue = false;
+
+  checks["الباركود"] = !!rec.has_qr;
+  if (!rec.has_qr) { alerts.push("ما فيه باركود (QR) في الفاتورة"); hardMissing = true; }
+
+  for (const key of REQUIRED) {
+    const present = cleanText(rec[key]) !== null;
+    checks[LABEL[key]] = present;
+    if (!present) { alerts.push(`${LABEL[key]} غير موجود`); hardMissing = true; }
+  }
+
+  for (const key of ["seller_vat", "buyer_vat"]) {
+    if (!rec[key]) continue;
+    const valid = validVat(rec[key]);
+    checks[`صيغة ${LABEL[key]}`] = valid;
+    if (!valid) {
+      const d = vatDigits(rec[key]) || "";
+      alerts.push(`${LABEL[key]} صيغته غير صحيحة (${d.length} رقم — المفروض 15 رقم يبدأ بـ3 وينتهي بـ3)`);
+      softIssue = true;
+    }
+  }
+
+  const sv = vatDigits(rec.seller_vat), bv = vatDigits(rec.buyer_vat);
+  if (sv && bv && sv === bv) {
+    alerts.push("الرقم الضريبي للمورد والجمعية نفسه — أحدهما غلط");
+    softIssue = true;
+  }
+
+  const net = parseAmount(rec.net_amount), vat = parseAmount(rec.vat_amount),
+        total = parseAmount(rec.total_amount);
+  const fmt = n => n.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  if (net !== null && vat !== null && total !== null) {
+    const correct = Math.abs((net + vat) - total) <= Math.max(TOLERANCE, Math.abs(total)*0.001);
+    checks["الحساب صحيح"] = correct;
+    if (!correct) {
+      alerts.push(`الحساب ما يضبط: ${fmt(net)} + ${fmt(vat)} = ${fmt(net+vat)} لكن المكتوب ${fmt(total)}`);
+      softIssue = true;
+    }
+    if (net > 0) {
+      const rate = vat / net;
+      const sane = VAT_RATES.some(r => Math.abs(rate - r) <= 0.005);
+      checks["نسبة الضريبة منطقية"] = sane;
+      if (!sane) { alerts.push(`نسبة الضريبة ${(rate*100).toFixed(1)}% — غير معتادة (المتوقع 15%)`); softIssue = true; }
+    }
+  }
+
+  // مطابقة المطبوع بالباركود — من أهم الفحوصات
+  for (const key of ["net_amount", "vat_amount", "total_amount"]) {
+    const fromQr = parseAmount(rec[key]), printed = parseAmount((rec.printed||{})[key]);
+    if (fromQr === null || printed === null) continue;
+    const matches = Math.abs(fromQr - printed) <= TOLERANCE;
+    checks[`${LABEL[key]} يطابق الباركود`] = matches;
+    if (!matches) {
+      alerts.push(`${LABEL[key]}: المطبوع في الفاتورة ${fmt(printed)} لكن الباركود يقول ${fmt(fromQr)}`);
+      softIssue = true;
+    }
+  }
+
+  const title = cleanText(rec.invoice_title);
+  if (title) {
+    const right = title.includes("فاتورة") || /invoice/i.test(title);
+    checks["اسم الفاتورة صحيح"] = right;
+    if (!right) { alerts.push(`اسم الفاتورة «${title}» ما يوضّح إنها فاتورة ضريبية`); softIssue = true; }
+  }
+
+  return {status: hardMissing ? MISSING : (softIssue ? REVIEW : OK), alerts, checks};
+}
+
+function findDuplicates(records){
+  const seen = new Map();
+  for (const rec of records) {
+    const vat = vatDigits(rec.seller_vat), no = cleanText(rec.invoice_no);
+    const key = (vat && no) ? `${vat}|${no}` : (rec.qr_raw || null);
+    if (!key) continue;
+    if (seen.has(key)) {
+      rec.alerts.push(`مكرّرة — نفس فاتورة «${seen.get(key)}»`);
+      if (rec.status === OK) rec.status = REVIEW;
+    } else seen.set(key, rec.file_name);
+  }
+}
+
+/* ═══════════ بناء السجل ═══════════ */
+async function buildRecord(file, manual){
+  const rec = {file_name: file.name, has_qr:false, qr_raw:null, sources:{},
+               printed:{}, url:null, alerts:[], checks:{}};
+  FIELDS.forEach(([k]) => rec[k] = null);
+
+  let pages = [], pdfText = "";
+  try {
+    if (PDF_RE.test(file.name)) {
+      const out = await loadPdf(file);
+      pages = out.pages; pdfText = out.text; rec.url = out.url;
+    } else {
+      const out = await loadImage(file);
+      pages = [out.source]; rec.url = out.url;
+    }
+  } catch (e) {
+    rec.status = MISSING; rec.alerts = [`تعذّر فتح الملف: ${e.message}`];
+    rec.source = "—"; return rec;
+  }
+
+  // 1) الباركود — المرجع
+  for (const page of pages) {
+    const {fields, raw} = await scanQR(page);
+    if (fields) {
+      rec.has_qr = true; rec.qr_raw = raw;
+      const total = parseAmount(fields[4]), vat = parseAmount(fields[5]);
+      const fromQr = {seller_name: fields[1], seller_vat: fields[2],
+                      invoice_date: fields[3], total_amount: fields[4], vat_amount: fields[5]};
+      if (total !== null && vat !== null) fromQr.net_amount = Math.round((total-vat)*100)/100;
+      for (const [k, v] of Object.entries(fromQr))
+        if (v !== undefined && v !== null) { rec[k] = v; rec.sources[k] = "باركود"; }
+      break;
+    }
+    if (raw && !rec.qr_raw) rec.qr_raw = raw;
+  }
+
+  // 2) نص PDF المضمّن
+  for (const [k, v] of Object.entries(extractFromText(pdfText, rec.seller_vat)))
+    if (rec[k] === null) { rec[k] = v; rec.sources[k] = "نص PDF"; }
+
+  // 3) التعبئة اليدوية — الباركود يظل المرجع، والمخالف يصير مقارنة
+  for (const [k, v] of Object.entries(manual || {})) {
+    if (!(k in LABEL) || v === "" || v === null) continue;
+    if (rec.sources[k] === "باركود") rec.printed[k] = v;
+    else { rec[k] = v; rec.sources[k] = "قراءة يدوية"; }
+  }
+
+  rec.source = [...new Set(Object.values(rec.sources))].join(" + ") || "—";
+  Object.assign(rec, check(rec));
+  for (const k of ["net_amount","vat_amount","total_amount"]) {
+    const n = parseAmount(rec[k]); if (n !== null) rec[k] = n;
+  }
+  rec.invoice_date = formatDate(rec.invoice_date);
+  rec.gaps = REQUIRED.filter(k => rec[k] === null || rec[k] === "");
+  rec.from_qr = Object.keys(rec.sources).filter(k => rec.sources[k] === "باركود");
+  return rec;
+}
+
+/* ═══════════ الواجهة ═══════════ */
+const $ = s => document.querySelector(s);
+let STATE = {records: [], files: new Map(), manual: new Map(), open: null};
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = v => (v === null || v === undefined || v === "") ? "—"
+  : (typeof v === "number" ? v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : v);
+
+const showErr = m => { $("#err").textContent = m; $("#err").classList.add("on"); };
+const clearErr = () => $("#err").classList.remove("on");
+
+const drop = $("#drop"), picker = $("#picker");
+drop.onclick = () => picker.click();
+picker.onchange = () => { if (picker.files.length) handle(picker.files); picker.value = ""; };
+["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", ev => { if (ev.dataTransfer.files.length) handle(ev.dataTransfer.files); });
+
+async function handle(fileList){
+  clearErr();
+  const files = [...fileList].filter(f => IMAGE_RE.test(f.name) || PDF_RE.test(f.name));
+  const skipped = [...fileList].length - files.length;
+  if (!files.length) { showErr("ما فيه أي ملف بصيغة مدعومة"); return; }
+
+  drop.classList.add("hidden");
+  $("#results").classList.add("hidden");
+  $("#busy").classList.add("on");
+
+  for (let i = 0; i < files.length; i++) {
+    $("#busyText").textContent = `أقرأ ${i+1} من ${files.length} — ${files[i].name}`;
+    $("#barFill").style.width = `${((i)/files.length*100).toFixed(0)}%`;
+    await new Promise(r => setTimeout(r, 0));   // نخلي المتصفح يرسم
+    const rec = await buildRecord(files[i], null);
+    STATE.files.set(rec.file_name, files[i]);
+    STATE.records.push(rec);
+  }
+
+  findDuplicates(STATE.records);
+  $("#busy").classList.remove("on");
+  $("#barFill").style.width = "0%";
+  if (skipped) showErr(`تجاهلت ${skipped} ملف بصيغة غير مدعومة`);
+  refresh();
+}
+
+function refresh(){
+  const counts = {[OK]:0, [REVIEW]:0, [MISSING]:0};
+  STATE.records.forEach(r => counts[r.status]++);
+  $("#cTotal").textContent = STATE.records.length;
+  $("#cOk").textContent = counts[OK];
+  $("#cWarn").textContent = counts[REVIEW];
+  $("#cBad").textContent = counts[MISSING];
+  render();
+  $("#results").classList.remove("hidden");
+  drop.classList.add("hidden");
+}
+
+function render(){
+  const body = $("#rows");
+  body.innerHTML = "";
+  STATE.records.forEach((r, i) => {
+    const tr = document.createElement("tr");
+    tr.className = "main" + (STATE.open === i ? " open" : "");
+    const cell = (k, t) => r.gaps.includes(k) ? '<span class="miss">ناقص</span>' : esc(t ?? "—");
+    const qrTag = k => r.from_qr.includes(k) ? '<span class="tag">باركود</span>' : "";
+    const amt = k => r.gaps.includes(k) ? '<span class="miss">ناقص</span>' : money(r[k]);
+    tr.innerHTML = `
+      <td class="caret">◀</td>
+      <td><span class="pill ${CLS[r.status]}">${esc(r.status)}</span></td>
+      <td class="mono">${cell("invoice_date", r.invoice_date)}${qrTag("invoice_date")}</td>
+      <td class="wrapname">${cell("seller_name", r.seller_name)}${qrTag("seller_name")}</td>
+      <td class="mono">${cell("seller_vat", r.seller_vat)}${qrTag("seller_vat")}</td>
+      <td class="num">${amt("net_amount")}</td>
+      <td class="num">${amt("vat_amount")}</td>
+      <td class="num">${amt("total_amount")}</td>
+      <td class="wrapname">${cell("buyer_name", r.buyer_name)}</td>
+      <td class="mono">${cell("buyer_vat", r.buyer_vat)}</td>
+      <td class="mono">${cell("invoice_no", r.invoice_no)}</td>
+      <td class="fname" title="${esc(r.file_name)}">${esc(r.file_name)}</td>`;
+    tr.onclick = () => { STATE.open = STATE.open === i ? null : i; render(); };
+    body.appendChild(tr);
+    if (STATE.open === i) body.appendChild(detailRow(r, i));
+  });
+}
+
+function detailRow(r, i){
+  const tr = document.createElement("tr");
+  tr.className = "detail";
+  const td = document.createElement("td");
+  td.colSpan = 12;
+
+  const fromQr = new Set(r.from_qr);
+  const alerts = r.alerts.length ? `<div class="section"><h4>التنبيهات</h4><ul class="alerts">${
+    r.alerts.map(a => `<li class="${r.status === MISSING ? "" : "soft"}">${esc(a)}</li>`).join("")
+  }</ul></div>` : "";
+
+  const reqFields = REQUIRED.map(k => {
+    const locked = fromQr.has(k);
+    return `<div><label>${esc(LABEL[k])}${locked ? '<span class="tag">باركود</span>' : ""}</label>
+      <input data-k="${k}" value="${esc(r[k] ?? "")}" ${locked ? "readonly class=locked" : ""}
+             placeholder="${locked ? "" : "اقرأه من الصورة واكتبه"}"></div>`;
+  }).join("");
+
+  const optFields = OPTIONAL.map(k =>
+    `<div><label>${esc(LABEL[k])}</label>
+      <input data-k="${k}" value="${esc(r[k] ?? "")}" placeholder="لو مكتوب في الفاتورة"></div>`).join("");
+
+  const verify = r.has_qr ? `<div class="section">
+      <h4>مقارنة المطبوع بالباركود <span class="opt">— اختياري</span></h4>
+      <p class="note">اكتب المبالغ كما هي مطبوعة على الفاتورة. أي اختلاف عن الباركود يطلع تنبيه.</p>
+      <div class="grid">${["net_amount","vat_amount","total_amount"].filter(k => fromQr.has(k)).map(k =>
+        `<div><label>${esc(LABEL[k])} — المطبوع</label>
+          <input data-p="${k}" value="${esc(r.printed[k] ?? "")}"
+                 placeholder="الباركود يقول ${money(r[k])}"></div>`).join("")}</div>
+    </div>` : "";
+
+  const checks = Object.keys(r.checks).length ? `<div class="section"><h4>الفحص التفصيلي</h4>
+    <div class="checks">${Object.entries(r.checks).map(([n,v]) =>
+      `<span class="chk ${v === true ? "y" : "n"}">${v === true ? "✔" : "✘"} ${esc(n)}</span>`).join("")}</div></div>` : "";
+
+  td.innerHTML = `<div class="panel">
+      <div>
+        <div class="preview">${r.url
+          ? `<a href="${r.url}" target="_blank" rel="noopener"><img src="${r.url}" alt="صورة الفاتورة"></a>`
+          : '<div class="note" style="padding:30px">لا توجد معاينة</div>'}</div>
+        <p class="note" style="margin-top:8px">مصدر البيانات: ${esc(r.source)}</p>
+      </div>
+      <div>
+        ${alerts}
+        <div class="section"><h4>البيانات الإلزامية ${r.gaps.length
+          ? `<span class="miss">ناقص منها ${r.gaps.length}</span>` : ""}</h4>
+          <p class="note">الحقول المعلّمة «باركود» مقفلة ومقروءة من الباركود. الباقي اقرأه من الصورة.</p>
+          <div class="grid">${reqFields}</div></div>
+        <div class="section"><h4>العناوين <span class="opt">— اختيارية، ما تطلع تنبيه لو ناقصة</span></h4>
+          <div class="grid">${optFields}</div></div>
+        ${verify}${checks}
+        <button class="primary" id="saveBtn">حفظ وإعادة الفحص</button>
+      </div>
+    </div>`;
+
+  td.onclick = e => e.stopPropagation();
+  td.querySelector("#saveBtn").onclick = () => save(r, td);
+  tr.appendChild(td);
+  return tr;
+}
+
+async function save(rec, container){
+  const manual = STATE.manual.get(rec.file_name) || {};
+  container.querySelectorAll("input[data-k]").forEach(inp => {
+    if (inp.readOnly) return;                       // قيم الباركود ما تُرسل
+    const v = inp.value.trim();
+    if (v) manual[inp.dataset.k] = v; else delete manual[inp.dataset.k];
+  });
+  container.querySelectorAll("input[data-p]").forEach(inp => {
+    const v = inp.value.trim();
+    if (v) manual[inp.dataset.p] = v; else delete manual[inp.dataset.p];
+  });
+  STATE.manual.set(rec.file_name, manual);
+
+  const btn = container.querySelector("#saveBtn");
+  btn.disabled = true; btn.textContent = "أحفظ…";
+  const idx = STATE.records.indexOf(rec);
+  STATE.records[idx] = await buildRecord(STATE.files.get(rec.file_name), manual);
+  STATE.records.forEach(r => { r.alerts = r.alerts.filter(a => !a.startsWith("مكرّرة")); });
+  findDuplicates(STATE.records);
+  refresh();
+}
+
+/* ═══════════ تصدير الإكسل ═══════════ */
+const COLUMNS = [
+  ["تاريخ الفاتورة", "invoice_date", 16],
+  ["اسم المورد", "seller_name", 30],
+  ["الرقم الضريبي للمورد", "seller_vat", 22],
+  ["المبلغ قبل الضريبة", "net_amount", 18],
+  ["الضريبة", "vat_amount", 14],
+  ["المبلغ شامل الضريبة", "total_amount", 20],
+];
+
+$("#btnExcel").onclick = () => {
+  const rows = STATE.records;
+  const data = [COLUMNS.map(c => c[0])];
+  rows.forEach(r => data.push(COLUMNS.map(([, k]) => {
+    const v = r[k];
+    return (v === null || v === undefined || v === "") ? "—" : v;
+  })));
+  data.push(["", "الإجمالي", "",
+    {t:"n", f:`SUM(D2:D${rows.length+1})`}, {t:"n", f:`SUM(E2:E${rows.length+1})`},
+    {t:"n", f:`SUM(F2:F${rows.length+1})`}]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws["!cols"] = COLUMNS.map(c => ({wch: c[2]}));
+  ws["!views"] = [{RTL: true}];
+  XLSX.utils.book_append_sheet(wb, ws, "البيانات");
+
+  // ورقة الفحص التفصيلي
+  const names = [...new Set(rows.flatMap(r => Object.keys(r.checks)))];
+  const cd = [["م", "اسم الملف", "الحالة", ...names]];
+  rows.forEach((r, i) => cd.push([i+1, r.file_name, r.status,
+    ...names.map(n => r.checks[n] === true ? "✔" : r.checks[n] === false ? "✘" : "—")]));
+  const cs = XLSX.utils.aoa_to_sheet(cd);
+  cs["!views"] = [{RTL: true}];
+  cs["!cols"] = [{wch:5},{wch:34},{wch:14}, ...names.map(() => ({wch:15}))];
+  XLSX.utils.book_append_sheet(wb, cs, "الفحص التفصيلي");
+
+  // ورقة التنبيهات
+  const ad = [["م", "اسم الملف", "الحالة", "التنبيه"]];
+  let n = 1;
+  rows.filter(r => r.status !== OK).forEach(r =>
+    (r.alerts.length ? r.alerts : ["—"]).forEach(a => ad.push([n++, r.file_name, r.status, a])));
+  if (ad.length === 1) ad.push(["", "ما فيه أي تنبيه — كل الفواتير سليمة ✔", "", ""]);
+  const as = XLSX.utils.aoa_to_sheet(ad);
+  as["!views"] = [{RTL: true}];
+  as["!cols"] = [{wch:5},{wch:36},{wch:14},{wch:70}];
+  XLSX.utils.book_append_sheet(wb, as, "التنبيهات");
+
+  const stamp = new Date().toISOString().slice(0,16).replace("T","_").replace(":","");
+  XLSX.writeFile(wb, `فحص_الفواتير_${stamp}.xlsx`);
+};
+
+$("#btnMore").onclick = () => picker.click();
+$("#btnReset").onclick = () => {
+  STATE.records.forEach(r => { if (r.url && r.url.startsWith("blob:")) URL.revokeObjectURL(r.url); });
+  STATE = {records: [], files: new Map(), manual: new Map(), open: null};
+  $("#results").classList.add("hidden");
+  drop.classList.remove("hidden");
+  clearErr();
+};
+</script>
+</body>
+</html>
