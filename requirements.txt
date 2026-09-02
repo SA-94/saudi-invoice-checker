@@ -1,0 +1,18 @@
+opencv-python-headless>=4.9
+zxing-cpp>=2.2
+openpyxl>=3.1
+pymupdf>=1.24
+pillow>=10.0
+pillow-heif>=0.16
+numpy>=1.26
+flask>=3.0
+
+# قراءة النصوص عبر محرك ويندوز المدمج (للفواتير اللي ما فيها باركود)
+winrt-runtime>=3.0
+winrt-Windows.Foundation>=3.0
+winrt-Windows.Foundation.Collections>=3.0
+winrt-Windows.Globalization>=3.0
+winrt-Windows.Graphics.Imaging>=3.0
+winrt-Windows.Media.Ocr>=3.0
+winrt-Windows.Storage>=3.0
+winrt-Windows.Storage.Streams>=3.0

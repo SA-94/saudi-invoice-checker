@@ -1,0 +1,16 @@
+# ملفات بايثون المؤقتة
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# فواتير المستخدم ونتائجه — ما ترفع أبداً
+الفواتير/*
+!الفواتير/.gitkeep
+نتائج/*
+!نتائج/.gitkeep
+*.xlsx
+
+# إعدادات محلية
+.claude/settings.local.json

@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فاحص الفواتير الضريبية</title>
+<style>
+:root{
+  --bg:#f6f6f3; --card:#ffffff; --line:#e3e3dd; --line-soft:#efefe9;
+  --ink:#1c1c1a; --ink-soft:#6b6b63; --ink-faint:#9a9a90;
+  --accent:#0f6b7d; --accent-soft:#e6f2f4;
+  --ok:#15803d; --ok-bg:#dcfce7; --ok-line:#86efac;
+  --warn:#b45309; --warn-bg:#fef3c7; --warn-line:#fcd34d;
+  --bad:#b91c1c; --bad-bg:#fee2e2; --bad-line:#fca5a5;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#171715; --card:#211f1d; --line:#38352f; --line-soft:#2b2926;
+    --ink:#f2f0eb; --ink-soft:#a8a49b; --ink-faint:#736f66;
+    --accent:#4fb3c8; --accent-soft:#153037;
+    --ok:#6ee7a0; --ok-bg:#0f2e1d; --ok-line:#1f6b40;
+    --warn:#fbbf24; --warn-bg:#33260a; --warn-line:#7c5a10;
+    --bad:#fca5a5; --bad-bg:#3a1616; --bad-line:#8a2c2c;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+  }
+}
+*{box-sizing:border-box}
+body{
+  margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font-family:"Segoe UI","Noto Sans Arabic",Tahoma,Arial,sans-serif;
+  font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1440px;margin:0 auto;padding:32px 24px 80px}
+
+/* ---------- الترويسة ---------- */
+header{margin-bottom:28px}
+h1{font-size:27px;font-weight:700;margin:0 0 6px;letter-spacing:-.2px}
+.sub{color:var(--ink-soft);font-size:15px;margin:0}
+.sub b{color:var(--ink);font-weight:600}
+
+/* ---------- منطقة السحب ---------- */
+.drop{
+  background:var(--card);border:2px dashed var(--line);border-radius:14px;
+  padding:52px 24px;text-align:center;cursor:pointer;
+  transition:border-color .15s,background .15s,transform .1s;
+}
+.drop:hover{border-color:var(--accent);background:var(--accent-soft)}
+.drop.over{border-color:var(--accent);background:var(--accent-soft);transform:scale(1.005)}
+.drop-icon{font-size:40px;line-height:1;margin-bottom:12px;opacity:.75}
+.drop-main{font-size:17px;font-weight:600;margin-bottom:6px}
+.drop-hint{color:var(--ink-soft);font-size:13.5px}
+#picker{display:none}
+
+/* ---------- شريط التقدّم ---------- */
+.busy{display:none;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;padding:26px;text-align:center;box-shadow:var(--shadow)}
+.busy.on{display:block}
+.bar{height:5px;background:var(--line-soft);border-radius:99px;overflow:hidden;margin-top:14px}
+.bar i{display:block;height:100%;width:35%;background:var(--accent);border-radius:99px;
+  animation:slide 1.15s ease-in-out infinite}
+@keyframes slide{0%{margin-inline-start:-35%}100%{margin-inline-start:100%}}
+
+/* ---------- ملخّص ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:26px 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:16px 18px;box-shadow:var(--shadow)}
+.card .n{font-size:30px;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
+.card .t{color:var(--ink-soft);font-size:13.5px;margin-top:2px}
+.card.ok .n{color:var(--ok)} .card.warn .n{color:var(--warn)} .card.bad .n{color:var(--bad)}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+button{font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+  border-radius:9px;padding:9px 17px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);transition:.13s}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{opacity:.88;color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+.spacer{flex:1}
+
+/* ---------- الجدول ---------- */
+.tablebox{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  overflow:hidden;box-shadow:var(--shadow)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:1240px}
+th{background:var(--line-soft);color:var(--ink-soft);font-weight:600;font-size:12.5px;
+  text-align:right;padding:11px 10px;white-space:nowrap;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line-soft);vertical-align:middle;white-space:nowrap}
+td.wrapname{white-space:normal;min-width:130px}
+tbody tr.main{cursor:pointer;transition:background .12s}
+tbody tr.main:hover{background:var(--accent-soft)}
+tr.main.open{background:var(--accent-soft)}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:left;direction:ltr}
+.mono{font-family:"Cascadia Mono",Consolas,monospace;font-size:12.5px;direction:ltr;text-align:left}
+.faint{color:var(--ink-faint)}
+.fname{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--ink-soft);font-size:12.5px}
+.caret{display:inline-block;transition:transform .18s;color:var(--ink-faint);font-size:11px}
+tr.main.open .caret{transform:rotate(-90deg)}
+
+.miss{color:var(--bad);font-size:12px;font-weight:600;background:var(--bad-bg);
+  border:1px solid var(--bad-line);border-radius:5px;padding:1px 8px;white-space:nowrap}
+.opt{font-weight:400;color:var(--ink-faint);font-size:11.5px}
+.pill{display:inline-block;padding:3px 11px;border-radius:99px;font-size:12.5px;font-weight:600;
+  white-space:nowrap;border:1px solid}
+.pill.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.pill.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.pill.bad{background:var(--bad-bg);color:var(--bad);border-color:var(--bad-line)}
+.tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:11px;font-weight:600;
+  background:var(--accent-soft);color:var(--accent);margin-inline-start:6px}
+
+/* ---------- التفاصيل ---------- */
+tr.detail>td{padding:0;background:var(--bg);border-bottom:1px solid var(--line)}
+.panel{display:grid;grid-template-columns:280px 1fr;gap:22px;padding:22px 24px}
+@media (max-width:820px){.panel{grid-template-columns:1fr}}
+.preview{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--card);
+  max-height:330px;display:flex;align-items:center;justify-content:center}
+.preview img{width:100%;height:auto;display:block;object-fit:contain;max-height:330px}
+.preview a{display:block;width:100%}
+.pdfnote{padding:34px 16px;text-align:center;color:var(--ink-soft);font-size:13px}
+
+h4{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--ink-soft);
+  text-transform:none;letter-spacing:.2px}
+.alerts{list-style:none;margin:0 0 20px;padding:0}
+.alerts li{background:var(--bad-bg);border:1px solid var(--bad-line);color:var(--bad);
+  border-radius:8px;padding:9px 13px;margin-bottom:7px;font-size:13.5px}
+.alerts li.soft{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-bottom:16px}
+label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:4px;font-weight:600}
+input{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card);color:var(--ink);font-family:inherit;font-size:14px}
+input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+input::placeholder{color:var(--ink-faint);font-size:13px}
+.locked{background:var(--line-soft);color:var(--ink-soft)}
+.section{margin-bottom:18px}
+.note{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px}
+
+.checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.chk{font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink-soft)}
+.chk.y{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+.chk.n{background:var(--bad-bg);border-color:var(--bad-line);color:var(--bad)}
+
+.empty{padding:44px 24px;text-align:center;color:var(--ink-soft)}
+.err{background:var(--bad-bg);border:1px solid var(--bad-line);color:var(--bad);
+  border-radius:10px;padding:13px 16px;margin-bottom:16px;font-size:14px;display:none}
+.err.on{display:block}
+.hidden{display:none}
+footer{margin-top:34px;color:var(--ink-faint);font-size:12.5px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>فاحص الفواتير الضريبية</h1>
+    <p class="sub">يقرأ <b>باركود الزاتكا</b> ويستخرج بيانات المورد والمبالغ بدقة كاملة، ويفحص اكتمال الفاتورة.</p>
+  </header>
+
+  <div class="err" id="err"></div>
+
+  <div class="drop" id="drop">
+    <div class="drop-icon">🧾</div>
+    <div class="drop-main">اسحب الفواتير هنا</div>
+    <div class="drop-hint">أو اضغط للاختيار &nbsp;·&nbsp; JPG، PNG، HEIC، PDF، TIFF، WEBP &nbsp;·&nbsp; تقدر تسحب مجلد كامل</div>
+    <input type="file" id="picker" multiple accept="image/*,.pdf,.heic,.heif,.tif,.tiff,.webp">
+  </div>
+
+  <p style="text-align:center;margin:14px 0 0" id="demoWrap">
+    <button id="btnDemo">جرّبه على فواتير تجريبية</button>
+  </p>
+
+  <div class="busy" id="busy">
+    <div id="busyText">أقرأ الفواتير…</div>
+    <div class="bar"><i></i></div>
+  </div>
+
+  <div id="results" class="hidden">
+    <div class="cards">
+      <div class="card"><div class="n" id="cTotal">0</div><div class="t">فاتورة</div></div>
+      <div class="card ok"><div class="n" id="cOk">0</div><div class="t">سليمة</div></div>
+      <div class="card warn"><div class="n" id="cWarn">0</div><div class="t">تحتاج مراجعة</div></div>
+      <div class="card bad"><div class="n" id="cBad">0</div><div class="t">ناقصة</div></div>
+    </div>
+
+    <div class="toolbar">
+      <button class="primary" id="btnExcel">⬇ تحميل ملف الإكسل</button>
+      <button id="btnMore">+ إضافة فواتير</button>
+      <div class="spacer"></div>
+      <button id="btnReset">مسح والبدء من جديد</button>
+    </div>
+
+    <div class="tablebox">
+      <div class="scroll">
+        <table>
+          <thead><tr>
+            <th style="width:34px"></th>
+            <th style="width:112px">الحالة</th>
+            <th>تاريخ الفاتورة</th>
+            <th>اسم المورد</th>
+            <th>الرقم الضريبي للمورد</th>
+            <th>قبل الضريبة</th>
+            <th>الضريبة</th>
+            <th>شامل الضريبة</th>
+            <th>اسم الجمعية</th>
+            <th>الرقم الضريبي للجمعية</th>
+            <th>رقم الفاتورة</th>
+            <th>الملف</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>يشتغل على جهازك بالكامل — ما يُرفع أي ملف للإنترنت.</footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let STATE = { session:null, records:[], labels:{}, open:null };
+
+const CLS = { "سليمة":"ok", "تحتاج مراجعة":"warn", "ناقصة":"bad" };
+const money = v => (v === null || v === undefined || v === "") ? "—"
+  : (typeof v === "number" ? v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : v);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function showErr(msg){ const e=$("#err"); e.textContent=msg; e.classList.add("on"); }
+function clearErr(){ $("#err").classList.remove("on"); }
+function busy(on, text){ $("#busy").classList.toggle("on", on); if(text) $("#busyText").textContent = text; }
+
+/* ---------- الرفع ---------- */
+const drop = $("#drop"), picker = $("#picker");
+drop.onclick = () => picker.click();
+picker.onchange = () => { if (picker.files.length) upload(picker.files); picker.value=""; };
+["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.add("over");
+}));
+["dragleave","drop"].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.remove("over");
+}));
+drop.addEventListener("drop", ev => { if (ev.dataTransfer.files.length) upload(ev.dataTransfer.files); });
+
+async function upload(files){
+  clearErr();
+  const fd = new FormData();
+  [...files].forEach(f => fd.append("files", f));
+  drop.classList.add("hidden");
+  $("#results").classList.add("hidden");
+  busy(true, `أقرأ ${files.length} ${files.length === 1 ? "فاتورة" : "فاتورة"}…`);
+  try{
+    const res = await fetch("/api/scan", { method:"POST", body:fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "صار خطأ أثناء الفحص");
+    apply(data);
+    if (data.skipped?.length) showErr("تجاهلت ملفات بصيغة غير مدعومة: " + data.skipped.join("، "));
+  }catch(e){
+    showErr(e.message);
+    drop.classList.remove("hidden");
+  }finally{ busy(false); }
+}
+
+function apply(data){
+  STATE.session = data.session;
+  STATE.records = data.records;
+  STATE.labels  = data.labels;
+  STATE.optional = data.optional || [];
+  STATE.required = data.required || [];
+  const c = data.counts;
+  $("#cTotal").textContent = data.records.length;
+  $("#cOk").textContent   = c["سليمة"] || 0;
+  $("#cWarn").textContent = c["تحتاج مراجعة"] || 0;
+  $("#cBad").textContent  = c["ناقصة"] || 0;
+  render();
+  $("#results").classList.remove("hidden");
+  drop.classList.add("hidden");
+  $("#demoWrap").classList.add("hidden");
+}
+
+$("#btnDemo").onclick = async () => {
+  clearErr();
+  drop.classList.add("hidden");
+  $("#demoWrap").classList.add("hidden");
+  busy(true, "أفحص الفواتير التجريبية…");
+  try{
+    const res = await fetch("/api/demo", { method:"POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "تعذّر تشغيل الأمثلة");
+    apply(data);
+  }catch(e){
+    showErr(e.message);
+    drop.classList.remove("hidden");
+    $("#demoWrap").classList.remove("hidden");
+  }finally{ busy(false); }
+};
+
+/* ---------- الجدول ---------- */
+function render(){
+  const body = $("#rows");
+  body.innerHTML = "";
+  STATE.records.forEach((r, i) => {
+    const tr = document.createElement("tr");
+    tr.className = "main" + (STATE.open === i ? " open" : "");
+    // الحقول الإلزامية الناقصة تطلع بشرطة حمراء عشان تبان بالعين
+    const cell = (key, text) => r.gaps.includes(key)
+      ? '<span class="miss">ناقص</span>' : esc(text ?? "—");
+    const qrTag = key => r.from_qr.includes(key) ? '<span class="tag">باركود</span>' : "";
+
+    tr.innerHTML = `
+      <td class="caret">◀</td>
+      <td><span class="pill ${CLS[r.status]}">${esc(r.status)}</span></td>
+      <td class="mono">${cell("invoice_date", r.invoice_date)}${qrTag("invoice_date")}</td>
+      <td class="wrapname">${cell("seller_name", r.seller_name)}${qrTag("seller_name")}</td>
+      <td class="mono">${cell("seller_vat", r.seller_vat)}${qrTag("seller_vat")}</td>
+      <td class="num">${r.gaps.includes("net_amount") ? '<span class="miss">ناقص</span>' : money(r.net_amount)}</td>
+      <td class="num">${r.gaps.includes("vat_amount") ? '<span class="miss">ناقص</span>' : money(r.vat_amount)}</td>
+      <td class="num">${r.gaps.includes("total_amount") ? '<span class="miss">ناقص</span>' : money(r.total_amount)}</td>
+      <td class="wrapname">${cell("buyer_name", r.buyer_name)}</td>
+      <td class="mono">${cell("buyer_vat", r.buyer_vat)}</td>
+      <td class="mono">${cell("invoice_no", r.invoice_no)}</td>
+      <td class="fname" title="${esc(r.file_name)}">${esc(r.file_name)}</td>`;
+    tr.onclick = () => { STATE.open = STATE.open === i ? null : i; render(); };
+    body.appendChild(tr);
+
+    if (STATE.open === i) body.appendChild(detailRow(r, i));
+  });
+}
+
+function detailRow(r, i){
+  const tr = document.createElement("tr");
+  tr.className = "detail";
+  const td = document.createElement("td");
+  td.colSpan = 12;
+
+  const isPdf = /\.pdf$/i.test(r.file_name);
+  const src = `/api/image?session=${STATE.session}&file=${encodeURIComponent(r.file_name)}`;
+
+  const alerts = r.alerts.length
+    ? `<div class="section"><h4>التنبيهات</h4><ul class="alerts">${
+        r.alerts.map(a => `<li class="${r.status === "ناقصة" ? "" : "soft"}">${esc(a)}</li>`).join("")
+      }</ul></div>` : "";
+
+  // كل الحقول الإلزامية تظهر: المقروءة من الباركود مقفلة، والباقي قابل للكتابة
+  const fromQr = new Set(r.from_qr);
+  const reqFields = (STATE.required || []).map(k => {
+    const locked = fromQr.has(k);
+    const val = r[k] === null || r[k] === undefined ? "" : r[k];
+    return `
+      <div>
+        <label>${esc(STATE.labels[k] || k)}${locked ? '<span class="tag">باركود</span>' : ""}</label>
+        <input data-k="${k}" value="${esc(val)}" ${locked ? "readonly class=locked" : ""}
+               placeholder="${locked ? "" : "اقرأه من الصورة واكتبه"}">
+      </div>`;
+  }).join("");
+
+  const gaps = `
+    <div class="section">
+      <h4>البيانات الإلزامية ${r.gaps.length
+        ? `<span class="miss">ناقص منها ${r.gaps.length}</span>` : ""}</h4>
+      <p class="note">الحقول المعلّمة «باركود» مقروءة من الباركود ومقفلة. الباقي اقرأه من الصورة واكتبه.</p>
+      <div class="grid">${reqFields}</div>
+    </div>`;
+
+  const optional = `
+    <div class="section">
+      <h4>العناوين <span class="opt">— اختيارية، ما تطلع تنبيه لو ناقصة</span></h4>
+      <div class="grid">
+        ${(STATE.optional || []).map(k => `
+          <div>
+            <label>${esc(STATE.labels[k] || k)}</label>
+            <input data-k="${k}" value="${esc(r[k] ?? "")}" placeholder="لو مكتوب في الفاتورة">
+          </div>`).join("")}
+      </div>
+    </div>`;
+
+  const verify = r.has_qr ? `
+    <div class="section">
+      <h4>مقارنة المطبوع بالباركود <span class="faint">(اختياري)</span></h4>
+      <p class="note">اكتب المبالغ كما هي مطبوعة على الفاتورة. أي اختلاف عن الباركود يطلع تنبيه.</p>
+      <div class="grid">
+        ${["net_amount","vat_amount","total_amount"].filter(k => fromQr.has(k)).map(k => `
+          <div>
+            <label>${esc(STATE.labels[k])} — المطبوع</label>
+            <input data-k="${k}" value="${esc(r.printed[k] ?? "")}"
+                   placeholder="الباركود يقول ${money(r[k])}">
+          </div>`).join("")}
+      </div>
+    </div>` : "";
+
+  const checks = Object.keys(r.checks).length ? `
+    <div class="section">
+      <h4>الفحص التفصيلي</h4>
+      <div class="checks">${Object.entries(r.checks).map(([n,v]) =>
+        `<span class="chk ${v === true ? "y" : v === false ? "n" : ""}">${v === true ? "✔" : "✘"} ${esc(n)}</span>`
+      ).join("")}</div>
+    </div>` : "";
+
+  td.innerHTML = `
+    <div class="panel">
+      <div>
+        <div class="preview">${isPdf
+          ? `<div class="pdfnote">ملف PDF<br><a href="${src}" target="_blank" rel="noopener">افتحه في تبويب جديد</a></div>`
+          : `<a href="${src}" target="_blank" rel="noopener"><img src="${src}" alt="صورة الفاتورة" loading="lazy"></a>`}
+        </div>
+        <p class="note" style="margin-top:8px">مصدر البيانات: ${esc(r.source)}</p>
+      </div>
+      <div>
+        ${alerts}${gaps}${optional}${verify}${checks}
+        <button class="primary" data-save="${i}">حفظ وإعادة الفحص</button>
+      </div>
+    </div>`;
+
+  td.onclick = e => e.stopPropagation();
+  const saveBtn = td.querySelector("[data-save]");
+  if (saveBtn) saveBtn.onclick = () => save(r.file_name, td, saveBtn);
+
+  tr.appendChild(td);
+  return tr;
+}
+
+async function save(fileName, container, btn){
+  const fields = {};
+  container.querySelectorAll("input[data-k]").forEach(inp => {
+    if (inp.readOnly) return;               // قيم الباركود مرجع — ما تُرسل
+    fields[inp.dataset.k] = inp.value.trim(); // الفاضي يمسح الحقل
+  });
+  btn.disabled = true; btn.textContent = "أحفظ…";
+  try{
+    const res = await fetch("/api/update", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ session: STATE.session, file_name: fileName, fields })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "تعذّر الحفظ");
+    apply(data);
+  }catch(e){
+    showErr(e.message);
+    btn.disabled = false; btn.textContent = "حفظ وإعادة الفحص";
+  }
+}
+
+/* ---------- الأزرار ---------- */
+$("#btnExcel").onclick = () => { location.href = `/api/excel?session=${STATE.session}`; };
+$("#btnMore").onclick  = () => picker.click();
+$("#btnReset").onclick = async () => {
+  if (STATE.session) await fetch("/api/clear", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ session: STATE.session })
+  });
+  STATE = { session:null, records:[], labels:{}, open:null };
+  $("#results").classList.add("hidden");
+  drop.classList.remove("hidden");
+  $("#demoWrap").classList.remove("hidden");
+  clearErr();
+};
+</script>
+</body>
+</html>
