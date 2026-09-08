@@ -190,7 +190,7 @@ footer a{color:var(--ink-soft)}
 
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.3/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 /* ═══════════ إعدادات ═══════════ */
@@ -872,56 +872,197 @@ async function save(rec, container){
   refresh();
 }
 
-/* ═══════════ تصدير الإكسل ═══════════ */
-const COLUMNS = [
-  ["تاريخ الفاتورة", "invoice_date", 16],
-  ["اسم المورد", "seller_name", 30],
-  ["الرقم الضريبي للمورد", "seller_vat", 22],
-  ["المبلغ قبل الضريبة", "net_amount", 18],
-  ["الضريبة", "vat_amount", 14],
-  ["المبلغ شامل الضريبة", "total_amount", 20],
+/* ═══════════ تصدير الإكسل — سجل المشتريات المحلية ═══════════
+   مطابق للنموذج المعتمد: ترويسة الجمعية، جدول باثني عشر عموداً،
+   ثم صف الإجمالي بمعادلات جمع.                                     */
+const HEADER_LINES = [
+  "المملكة العربية السعودية",
+  "جمعية.....",
+  "مسجلة بالمركز الوطني للقطاع غير الربحي",
+  "ترخيص رقم ",
+  "رقم الاسترداد (    )",
 ];
+const SHEET_TITLE = " سجل المشتريات المحلية  ";
+const TOTAL_LABEL = "الاجمـــــــالي";
 
-$("#btnExcel").onclick = () => {
-  const rows = STATE.records;
-  const data = [COLUMNS.map(c => c[0])];
-  rows.forEach(r => data.push(COLUMNS.map(([, k]) => {
-    const v = r[k];
-    return (v === null || v === undefined || v === "") ? "—" : v;
-  })));
-  data.push(["", "الإجمالي", "",
-    {t:"n", f:`SUM(D2:D${rows.length+1})`}, {t:"n", f:`SUM(E2:E${rows.length+1})`},
-    {t:"n", f:`SUM(F2:F${rows.length+1})`}]);
+const ACC_INT = '_(* #,##0_);_(* \\(#,##0\\);_(* "-"??_);_(@_)';
+const ACC_DEC = '_(* #,##0.00_);_(* \\(#,##0.00\\);_(* "-"??_);_(@_)';
 
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  ws["!cols"] = COLUMNS.map(c => ({wch: c[2]}));
-  ws["!views"] = [{RTL: true}];
-  XLSX.utils.book_append_sheet(wb, ws, "البيانات");
+// العنوان، المفتاح، العرض، الصيغة، المحاذاة، الالتفاف
+const COLUMNS = [
+  ["م",                     "_index",        8.375,  "General",    "center", false],
+  ["تاريخ الفاتورة ",       "invoice_date", 17.75,   "mm/dd/yyyy", "center", false],
+  ["رقم الفاتورة ",         "invoice_no",   21.0,    "General",    "center", false],
+  ["اسم المورد ",           "seller_name",  49.375,  "0.00",       "right",  false],
+  ["الرقم الضريبي للمورد",  "seller_vat",   25.25,   "0",          "center", false],
+  ["وصف المنتج / الخدمة ",  "_description", 53.5,    "0.00",       "right",  true],
+  ["معدل الضريبة ",         "_vat_rate",    15.875,  "0%",         "center", true],
+  ["القيمة قبل الضريبة ",   "net_amount",   21.5,    ACC_DEC,      "center", true],
+  ["ضريبة القيمة المضافة ", "vat_amount",   24.375,  ACC_DEC,      "center", true],
+  ["القيمة بعد الضريبة ",   "total_amount", 21.375,  ACC_DEC,      "center", true],
+  ["رقم القيد المحاسبي ",   "_entry_no",    19.625,  "General",    "center", false],
+  ["ملاحظات",               "_notes",       19.125,  ACC_INT,      "center", true],
+];
+const SUM_KEYS = ["net_amount", "vat_amount", "total_amount"];
+const HEADER_NO_WRAP = ["seller_name"];
+const RIGHT_MEDIUM = ["total_amount", "_notes"];
+const LAST_KEY = "_notes";
+const TOP_HAIR = ["_description"];
+const MIN_ROWS = 13, HEADER_ROW = 7, FIRST_ROW = 8;
 
-  // ورقة الفحص التفصيلي
-  const names = [...new Set(rows.flatMap(r => Object.keys(r.checks)))];
-  const cd = [["م", "اسم الملف", "الحالة", ...names]];
-  rows.forEach((r, i) => cd.push([i+1, r.file_name, r.status,
-    ...names.map(n => r.checks[n] === true ? "✔" : r.checks[n] === false ? "✘" : "—")]));
-  const cs = XLSX.utils.aoa_to_sheet(cd);
-  cs["!views"] = [{RTL: true}];
-  cs["!cols"] = [{wch:5},{wch:34},{wch:14}, ...names.map(() => ({wch:15}))];
-  XLSX.utils.book_append_sheet(wb, cs, "الفحص التفصيلي");
+const TH_FILL = {type:"pattern", pattern:"solid", fgColor:{theme:8, tint:0.8}};
+const TD_FILL = {type:"pattern", pattern:"solid", fgColor:{theme:0}};
+const SUM_FILL = {type:"pattern", pattern:"solid", fgColor:{argb:"FFFFFF00"}};
+const STATUS_NOTE = {[OK]:"", [REVIEW]:"تحتاج مراجعة", [MISSING]:"ناقصة"};
 
-  // ورقة التنبيهات
-  const ad = [["م", "اسم الملف", "الحالة", "التنبيه"]];
-  let n = 1;
-  rows.filter(r => r.status !== OK).forEach(r =>
-    (r.alerts.length ? r.alerts : ["—"]).forEach(a => ad.push([n++, r.file_name, r.status, a])));
-  if (ad.length === 1) ad.push(["", "ما فيه أي تنبيه — كل الفواتير سليمة ✔", "", ""]);
-  const as = XLSX.utils.aoa_to_sheet(ad);
-  as["!views"] = [{RTL: true}];
-  as["!cols"] = [{wch:5},{wch:36},{wch:14},{wch:70}];
-  XLSX.utils.book_append_sheet(wb, as, "التنبيهات");
+function periodLine(records){
+  const dates = records.map(r => formatDate(r.invoice_date))
+    .filter(d => d && /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+  if (!dates.length) return "الفترة من                :";
+  const f = d => d.replace(/-/g, "/");
+  return `الفترة من ${f(dates[0])}م  :  ${f(dates[dates.length-1])} م`;
+}
 
-  const stamp = new Date().toISOString().slice(0,16).replace("T","_").replace(":","");
-  XLSX.writeFile(wb, `فحص_الفواتير_${stamp}.xlsx`);
+function vatRate(r){
+  const net = parseAmount(r.net_amount), vat = parseAmount(r.vat_amount);
+  return (net && vat !== null && net > 0) ? Math.round(vat/net*10000)/10000 : 0.15;
+}
+
+function noteFor(r){
+  const status = STATUS_NOTE[r.status] || "";
+  if (!status) return null;
+  return (r.alerts && r.alerts.length) ? `${status} — ${r.alerts[0]}` : status;
+}
+
+function cellValue(rec, key, index){
+  if (key === "_index") return index;
+  if (!rec) return key === "_vat_rate" ? 0.15 : null;
+  if (key === "_vat_rate") return vatRate(rec);
+  if (key === "_notes") return noteFor(rec);
+  if (key === "_description" || key === "_entry_no") return null;
+  const v = rec[key];
+  if (key === "invoice_date") {
+    const s = formatDate(v);
+    // منتصف ليل UTC — بدون Z يبنيه المتصفح بالتوقيت المحلي فينقص إكسل يوماً
+    return /^\d{4}-\d{2}-\d{2}$/.test(s || "") ? new Date(s + "T00:00:00Z") : (s || null);
+  }
+  if (SUM_KEYS.includes(key)) { const n = parseAmount(v); return n === null ? null : n; }
+  if (key === "seller_vat" && v) return String(v);
+  return v === undefined ? null : v;
+}
+
+const B = s => ({style: s});
+function borderFor(key, col, isHeader, isFirst, isLast){
+  if (isHeader) return {
+    left: B(col === 1 ? "medium" : "thin"),
+    right: B(RIGHT_MEDIUM.includes(key) ? "medium" : "thin"),
+    top: B("medium"), bottom: B("medium"),
+  };
+  const top = isFirst ? B(TOP_HAIR.includes(key) ? "hair" : "medium") : B("hair");
+  return {
+    left: B("thin"),
+    right: B(key === LAST_KEY ? "medium" : "thin"),
+    top, bottom: B(isLast ? "medium" : "hair"),
+  };
+}
+
+$("#btnExcel").onclick = async () => {
+  const btn = $("#btnExcel");
+  btn.disabled = true; btn.textContent = "أجهّز الملف…";
+  try {
+    const records = STATE.records;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("ورقة1", {
+      views: [{rightToLeft: true}],
+      pageSetup: {orientation: "landscape", paperSize: 9},
+    });
+
+    // ————— الترويسة —————
+    HEADER_LINES.forEach((text, i) => {
+      const row = i + 1;
+      ws.mergeCells(row, 1, row, 3);
+      const c = ws.getCell(row, 1);
+      c.value = text;
+      c.font = {name:"Arial", size:16};
+      c.alignment = {horizontal:"center", vertical:"middle"};
+      ws.getRow(row).height = 25.15;
+    });
+    [[5, SHEET_TITLE], [6, periodLine(records)]].forEach(([row, text]) => {
+      const c = ws.getCell(row, 6);
+      c.value = text;
+      c.font = {name:"Arial", size:18, bold:true};
+      c.alignment = {horizontal:"center", vertical:"middle"};
+    });
+    ws.getRow(6).height = 38.45;
+
+    // ————— رؤوس الجدول —————
+    ws.getRow(HEADER_ROW).height = 51.6;
+    COLUMNS.forEach(([title, key, width], i) => {
+      const col = i + 1;
+      ws.getColumn(col).width = width;
+      const c = ws.getCell(HEADER_ROW, col);
+      c.value = title;
+      c.font = {name:"Arial", size:16, bold:true};
+      c.fill = TH_FILL;
+      c.numFmt = ACC_INT;
+      c.alignment = {horizontal:"center", vertical:"middle",
+                     wrapText: !HEADER_NO_WRAP.includes(key)};
+      c.border = borderFor(key, col, true);
+    });
+
+    // ————— صفوف الفواتير —————
+    const count = Math.max(records.length, MIN_ROWS);
+    for (let i = 0; i < count; i++) {
+      const rowNum = FIRST_ROW + i, rec = records[i] || null;
+      ws.getRow(rowNum).height = 30;
+      COLUMNS.forEach(([, key, , fmt, halign, wrap], j) => {
+        const col = j + 1;
+        const c = ws.getCell(rowNum, col);
+        c.value = cellValue(rec, key, i + 1);
+        c.font = {name:"Arial", size:16, bold: key !== LAST_KEY};
+        c.fill = TD_FILL;
+        c.numFmt = fmt;
+        c.alignment = {horizontal: halign, vertical:"middle", wrapText: wrap};
+        c.border = borderFor(key, col, false, i === 0, i === count - 1);
+      });
+    }
+
+    // ————— صف الإجمالي —————
+    const lastRow = FIRST_ROW + count - 1, totalRow = lastRow + 1;
+    for (const col of [2,3,4,5,6,7,11,12])
+      ws.getCell(totalRow, col).font = {name:"Arial", size:col >= 11 ? 12 : 11};
+    ws.mergeCells(totalRow, 1, totalRow, 7);
+    const label = ws.getCell(totalRow, 1);
+    label.value = TOTAL_LABEL;
+    label.font = {name:"Arial", size:18, bold:true};
+    label.alignment = {horizontal:"center", vertical:"middle"};
+    label.border = {right: B("medium"), top: B("medium")};
+
+    COLUMNS.forEach(([, key], j) => {
+      if (!SUM_KEYS.includes(key)) return;
+      const col = j + 1, letter = String.fromCharCode(64 + col);
+      const c = ws.getCell(totalRow, col);
+      c.value = {formula: `SUM(${letter}${FIRST_ROW}:${letter}${lastRow})`};
+      c.font = {name:"Arial", size:16, bold:true};
+      c.fill = SUM_FILL;
+      c.numFmt = ACC_DEC;
+      c.alignment = {horizontal:"center", vertical:"middle"};
+      c.border = {left: B("medium"), right: B("medium"), bottom: B("medium")};
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const stamp = new Date().toISOString().slice(0, 10);
+    const url = URL.createObjectURL(new Blob([buf],
+      {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+    const a = document.createElement("a");
+    a.href = url; a.download = `سجل_المشتريات_${stamp}.xlsx`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  } catch (e) {
+    showErr("تعذّر توليد الإكسل: " + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "⬇ تحميل ملف الإكسل";
+  }
 };
 
 $("#btnMore").onclick = () => picker.click();

@@ -1,183 +1,227 @@
 # -*- coding: utf-8 -*-
-"""كتابة نتائج الفحص في ملف إكسل جاهز للاستخدام."""
+"""كتابة نتائج الفحص بصيغة «سجل المشتريات المحلية» الرسمي.
+
+النموذج مطابق خلية بخلية للنموذج المعتمد: ترويسة الجمعية، ثم جدول
+باثني عشر عموداً لكل عمود تنسيقه وحدوده، ثم صف الإجمالي بمعادلات جمع.
+"""
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from . import validate
 from .validate import MISSING, OK, REVIEW
 
-HEADER_FILL = PatternFill("solid", fgColor="1F4E5F")
-HEADER_FONT = Font(color="FFFFFF", bold=True, size=11)
-STATUS_FILL = {
-    OK: PatternFill("solid", fgColor="C6EFCE"),
-    REVIEW: PatternFill("solid", fgColor="FFEB9C"),
-    MISSING: PatternFill("solid", fgColor="FFC7CE"),
-}
-STATUS_FONT = {
-    OK: Font(color="006100", bold=True),
-    REVIEW: Font(color="9C5700", bold=True),
-    MISSING: Font(color="9C0006", bold=True),
-}
-THIN = Side(style="thin", color="D0D0D0")
-BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
+# ————— نصوص الترويسة —————
+HEADER_LINES = [
+    "المملكة العربية السعودية",
+    "جمعية.....",
+    "مسجلة بالمركز الوطني للقطاع غير الربحي",
+    "ترخيص رقم ",
+    "رقم الاسترداد (    )",
+]
+TITLE = " سجل المشتريات المحلية  "
+TOTAL_LABEL = "الاجمـــــــالي"
 
-MONEY_FMT = "#,##0.00"
-TEXT_FMT = "@"
-DATE_FMT = "yyyy-mm-dd"
+# ————— صيغ الأرقام —————
+ACC_INT = '_(* #,##0_);_(* \\(#,##0\\);_(* "-"??_);_(@_)'
+ACC_DEC = '_(* #,##0.00_);_(* \\(#,##0.00\\);_(* "-"??_);_(@_)'
+DATE_FMT = "mm/dd/yyyy"
 
-# ورقة البيانات: الأعمدة الستة المطلوبة فقط.
-# الحالة والتنبيهات واسم الملف في ورقتَي «الفحص التفصيلي» و«التنبيهات».
-# (العنوان، مفتاح السجل، العرض، التنسيق)
-MAIN_COLUMNS = [
-    ("تاريخ الفاتورة", "invoice_date", 16, DATE_FMT),
-    ("اسم المورد", "seller_name", 30, None),
-    ("الرقم الضريبي للمورد", "seller_vat", 22, TEXT_FMT),
-    ("المبلغ قبل الضريبة", "net_amount", 18, MONEY_FMT),
-    ("الضريبة", "vat_amount", 14, MONEY_FMT),
-    ("المبلغ شامل الضريبة", "total_amount", 20, MONEY_FMT),
+# ————— الأعمدة: العنوان، المفتاح، العرض، صيغة الخلية، المحاذاة، الالتفاف —————
+# (المحاذاة والصيغة منقولة حرفياً من النموذج المعتمد)
+COLUMNS = [
+    ("م",                     "_index",        8.375,  "General", "center", False),
+    ("تاريخ الفاتورة ",       "invoice_date", 17.75,   DATE_FMT,  "center", False),
+    ("رقم الفاتورة ",         "invoice_no",   21.0,    "General", "center", False),
+    ("اسم المورد ",           "seller_name",  49.375,  "0.00",    "right",  False),
+    ("الرقم الضريبي للمورد",  "seller_vat",   25.25,   "0",       "center", False),
+    ("وصف المنتج / الخدمة ",  "_description", 53.5,    "0.00",    "right",  True),
+    ("معدل الضريبة ",         "_vat_rate",    15.875,  "0%",      "center", True),
+    ("القيمة قبل الضريبة ",   "net_amount",   21.5,    ACC_DEC,   "center", True),
+    ("ضريبة القيمة المضافة ", "vat_amount",   24.375,  ACC_DEC,   "center", True),
+    ("القيمة بعد الضريبة ",   "total_amount", 21.375,  ACC_DEC,   "center", True),
+    ("رقم القيد المحاسبي ",   "_entry_no",    19.625,  "General", "center", False),
+    ("ملاحظات",               "_notes",       19.125,  ACC_INT,   "center", True),
 ]
 SUM_KEYS = ("net_amount", "vat_amount", "total_amount")
 
+# عناوين بلا التفاف نص (عمود «اسم المورد» فقط)، وأعمدة حدّها الأيمن عريض
+HEADER_NO_WRAP = {"seller_name"}
+RIGHT_MEDIUM = {"total_amount", "_notes"}   # J و L في النموذج
+LAST_COLUMN = "_notes"
+TOP_HAIR_FIRST_ROW = {"_description"}       # F في النموذج حدّها العلوي رفيع
 
-def _style_header(ws, headers):
-    for col, title in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=title)
-        cell.fill, cell.font = HEADER_FILL, HEADER_FONT
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border = BORDER
-    ws.row_dimensions[1].height = 32
-    ws.freeze_panes = "A2"
-    ws.sheet_view.rightToLeft = True
-    if len(headers) >= 1:
-        ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}1"
+# ————— الأنماط —————
+FONT = "Arial"
+HEADER_ROW = 7
+FIRST_DATA_ROW = 8
+MIN_DATA_ROWS = 13          # نبقي شكل النموذج حتى لو الفواتير أقل
 
+TITLE_FONT = Font(name=FONT, size=16)
+BIG_FONT = Font(name=FONT, size=18, bold=True)
+BOLD16 = Font(name=FONT, size=16, bold=True)
+PLAIN16 = Font(name=FONT, size=16)
 
-def _sheet_data(wb, records):
-    ws = wb.active
-    ws.title = "البيانات"
-    _style_header(ws, [c[0] for c in MAIN_COLUMNS])
+TH_FILL = PatternFill("solid", fgColor=Color(theme=8, tint=0.8))
+TD_FILL = PatternFill("solid", fgColor=Color(theme=0, tint=0.0))
+SUM_FILL = PatternFill("solid", fgColor="FFFFFF00")
 
-    for col, (_, _, width, _) in enumerate(MAIN_COLUMNS, 1):
-        ws.column_dimensions[get_column_letter(col)].width = width
+MEDIUM, THIN, HAIR = Side(style="medium"), Side(style="thin"), Side(style="hair")
+CENTER = Alignment(horizontal="center", vertical="center")
 
-    for row, rec in enumerate(records, start=2):
-        for col, (_, key, _, fmt) in enumerate(MAIN_COLUMNS, 1):
-            value = rec.get(key)
+ROW_HEIGHTS = {1: 25.15, 2: 25.15, 3: 25.15, 4: 25.15, 5: 25.15, 6: 38.45, 7: 51.6}
+DATA_ROW_HEIGHT = 30.0
 
-            # المبالغ أرقام حقيقية عشان تنجمع، والتاريخ تاريخ حقيقي عشان يتفرز
-            if fmt == MONEY_FMT and value is not None:
-                value = float(value)
-            elif fmt == DATE_FMT:
-                value = validate.parse_date(value) or validate.clean_text(value)
-            elif fmt == TEXT_FMT and value is not None:
-                value = str(value)
-
-            cell = ws.cell(row=row, column=col, value=value if value is not None else "—")
-            cell.border = BORDER
-            cell.alignment = Alignment(
-                horizontal="right" if fmt is None else "center", vertical="center"
-            )
-            if fmt and value is not None:
-                cell.number_format = fmt
-            # نلوّن الصف حسب حالة الفحص عشان تبان المشاكل بالعين
-            if rec.get("status") != OK:
-                cell.fill = STATUS_FILL.get(rec.get("status"), PatternFill())
-
-    # صف المجموع
-    if records:
-        total_row = len(records) + 2
-        label = ws.cell(row=total_row, column=2, value="الإجمالي")
-        label.font = Font(bold=True)
-        label.alignment = Alignment(horizontal="right", vertical="center")
-        for col, (_, key, _, _) in enumerate(MAIN_COLUMNS, 1):
-            if key not in SUM_KEYS:
-                continue
-            letter = get_column_letter(col)
-            cell = ws.cell(
-                row=total_row, column=col, value=f"=SUM({letter}2:{letter}{total_row - 1})"
-            )
-            cell.number_format, cell.font = MONEY_FMT, Font(bold=True)
-            cell.fill = PatternFill("solid", fgColor="EAF1F5")
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-    return ws
+STATUS_NOTE = {OK: "", REVIEW: "تحتاج مراجعة", MISSING: "ناقصة"}
 
 
-def _sheet_checks(wb, records):
-    all_checks = []
-    for rec in records:
-        for name in rec.get("checks", {}):
-            if name not in all_checks:
-                all_checks.append(name)
-    if not all_checks:
-        return
-
-    ws = wb.create_sheet("الفحص التفصيلي")
-    _style_header(ws, ["م", "اسم الملف", "الحالة"] + all_checks)
-    ws.column_dimensions["A"].width = 5
-    ws.column_dimensions["B"].width = 34
-    ws.column_dimensions["C"].width = 14
-    for col in range(4, 4 + len(all_checks)):
-        ws.column_dimensions[get_column_letter(col)].width = 15
-
-    for row, rec in enumerate(records, start=2):
-        ws.cell(row=row, column=1, value=row - 1).border = BORDER
-        ws.cell(row=row, column=2, value=rec.get("file_name")).border = BORDER
-        cell = ws.cell(row=row, column=3, value=rec.get("status"))
-        cell.fill = STATUS_FILL.get(rec.get("status"), PatternFill())
-        cell.font = STATUS_FONT.get(rec.get("status"), Font())
-        cell.border = BORDER
-
-        checks = rec.get("checks", {})
-        for i, name in enumerate(all_checks):
-            state = checks.get(name)
-            cell = ws.cell(
-                row=row, column=4 + i,
-                value="✔" if state is True else ("✘" if state is False else "—"),
-            )
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-            cell.border = BORDER
-            if state is True:
-                cell.font = Font(color="006100", bold=True, size=13)
-            elif state is False:
-                cell.font = Font(color="9C0006", bold=True, size=13)
-                cell.fill = STATUS_FILL[MISSING]
+def _period_line(records):
+    """سطر الفترة، مبني من أقدم وأحدث تاريخ فاتورة."""
+    dates = [d for d in (validate.parse_date(r.get("invoice_date")) for r in records) if d]
+    if not dates:
+        return "الفترة من                :"
+    fmt = lambda d: d.strftime("%Y/%m/%d")
+    return f"الفترة من {fmt(min(dates))}م  :  {fmt(max(dates))} م"
 
 
-def _sheet_alerts(wb, records):
-    flagged = [r for r in records if r.get("status") != OK]
-    ws = wb.create_sheet("التنبيهات")
-    _style_header(ws, ["م", "اسم الملف", "الحالة", "التنبيه"])
-    for width, letter in ((5, "A"), (36, "B"), (14, "C"), (70, "D")):
-        ws.column_dimensions[letter].width = width
+def _vat_rate(rec):
+    """نسبة الضريبة الفعلية، أو 15% الافتراضية لو ما قدرنا نحسبها."""
+    net = validate.parse_amount(rec.get("net_amount"))
+    vat = validate.parse_amount(rec.get("vat_amount"))
+    if net and vat is not None and net > 0:
+        return round(vat / net, 4)
+    return 0.15
 
-    if not flagged:
-        ws.cell(row=2, column=2, value="ما فيه أي تنبيه — كل الفواتير سليمة ✔").font = Font(
-            bold=True, color="006100", size=12
+
+def _notes(rec):
+    """عمود الملاحظات: حالة الفحص وأهم تنبيه."""
+    status = STATUS_NOTE.get(rec.get("status"), "")
+    if not status:
+        return None
+    alerts = rec.get("alerts") or []
+    return f"{status} — {alerts[0]}" if alerts else status
+
+
+def _value(rec, key, index):
+    if key == "_index":
+        return index
+    if rec is None:
+        return 0.15 if key == "_vat_rate" else None
+    if key == "_vat_rate":
+        return _vat_rate(rec)
+    if key == "_notes":
+        return _notes(rec)
+    if key in ("_description", "_entry_no"):
+        return None                       # تُعبّأ يدوياً
+    value = rec.get(key)
+    if key == "invoice_date":
+        return validate.parse_date(value) or validate.clean_text(value)
+    if key in SUM_KEYS:
+        parsed = validate.parse_amount(value)
+        return float(parsed) if parsed is not None else None
+    if key == "seller_vat" and value:
+        return str(value)                 # نص عشان لا يفقد إكسل خانات الرقم
+    return value
+
+
+def _border(key, col, is_header, is_first, is_last):
+    """حدود الخلية حسب موقعها — منقولة من النموذج."""
+    if is_header:
+        return Border(
+            left=MEDIUM if col == 1 else THIN,
+            right=MEDIUM if key in RIGHT_MEDIUM else THIN,
+            top=MEDIUM, bottom=MEDIUM,
         )
-        return
+    top = HAIR
+    if is_first:
+        top = HAIR if key in TOP_HAIR_FIRST_ROW else MEDIUM
+    return Border(
+        left=THIN,
+        right=MEDIUM if key == LAST_COLUMN else THIN,
+        top=top,
+        bottom=MEDIUM if is_last else HAIR,
+    )
 
-    row = 2
-    for rec in flagged:
-        alerts = rec.get("alerts") or ["—"]
-        for alert in alerts:
-            ws.cell(row=row, column=1, value=row - 1).border = BORDER
-            ws.cell(row=row, column=2, value=rec.get("file_name")).border = BORDER
-            cell = ws.cell(row=row, column=3, value=rec.get("status"))
-            cell.fill = STATUS_FILL.get(rec.get("status"), PatternFill())
-            cell.font = STATUS_FONT.get(rec.get("status"), Font())
-            cell.border = BORDER
-            c = ws.cell(row=row, column=4, value=alert)
-            c.alignment = Alignment(horizontal="right", vertical="center", wrap_text=True)
-            c.border = BORDER
-            row += 1
+
+def _write_header(ws, records):
+    for i, text in enumerate(HEADER_LINES, start=1):
+        ws.merge_cells(start_row=i, start_column=1, end_row=i, end_column=3)
+        cell = ws.cell(row=i, column=1, value=text)
+        cell.font, cell.alignment = TITLE_FONT, CENTER
+
+    for row, text in ((5, TITLE), (6, _period_line(records))):
+        cell = ws.cell(row=row, column=6, value=text)
+        cell.font, cell.alignment = BIG_FONT, CENTER
+
+    for row, height in ROW_HEIGHTS.items():
+        ws.row_dimensions[row].height = height
+
+
+def _write_table_header(ws):
+    for col, (title, key, width, _, _, _) in enumerate(COLUMNS, start=1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+        cell = ws.cell(row=HEADER_ROW, column=col, value=title)
+        cell.font, cell.fill, cell.number_format = BOLD16, TH_FILL, ACC_INT
+        cell.alignment = Alignment(
+            horizontal="center", vertical="center",
+            wrap_text=key not in HEADER_NO_WRAP,
+        )
+        cell.border = _border(key, col, True, False, False)
+
+
+def _write_rows(ws, records):
+    count = max(len(records), MIN_DATA_ROWS)
+    for i in range(count):
+        row = FIRST_DATA_ROW + i
+        rec = records[i] if i < len(records) else None
+        ws.row_dimensions[row].height = DATA_ROW_HEIGHT
+
+        for col, (_, key, _, fmt, halign, wrap) in enumerate(COLUMNS, start=1):
+            cell = ws.cell(row=row, column=col, value=_value(rec, key, i + 1))
+            cell.font = PLAIN16 if key == LAST_COLUMN else BOLD16
+            cell.fill = TD_FILL
+            cell.number_format = fmt
+            cell.alignment = Alignment(horizontal=halign, vertical="center", wrap_text=wrap)
+            cell.border = _border(key, col, False, i == 0, i == count - 1)
+    return FIRST_DATA_ROW + count - 1
+
+
+def _write_total(ws, first, last):
+    row = last + 1
+    # الخطوط قبل الدمج — الخلايا المدموجة تصير للقراءة فقط بعده
+    for col in range(2, 8):
+        ws.cell(row=row, column=col).font = Font(name=FONT, size=11)
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=7)
+    label = ws.cell(row=row, column=1, value=TOTAL_LABEL)
+    label.font, label.alignment = BIG_FONT, CENTER
+    label.border = Border(right=MEDIUM, top=MEDIUM)
+
+    plain11 = Font(name=FONT, size=11)
+    for col, (_, key, _, _, _, _) in enumerate(COLUMNS, start=1):
+        cell = ws.cell(row=row, column=col)
+        if key in SUM_KEYS:
+            letter = get_column_letter(col)
+            cell.value = f"=SUM({letter}{first}:{letter}{last})"
+            cell.font, cell.fill = BOLD16, SUM_FILL
+            cell.alignment, cell.number_format = CENTER, ACC_DEC
+            cell.border = Border(left=MEDIUM, right=MEDIUM, bottom=MEDIUM)
+        elif col > 1:
+            cell.font = plain11   # بقية خلايا الصف تتبع خط النموذج
 
 
 def write(records, path):
-    """يكتب كل النتائج في ملف إكسل بثلاث أوراق."""
+    """يكتب سجل المشتريات المحلية في ملف إكسل."""
     wb = Workbook()
-    _sheet_data(wb, records)
-    _sheet_checks(wb, records)
-    _sheet_alerts(wb, records)
+    ws = wb.active
+    ws.title = "ورقة1"
+    ws.sheet_view.rightToLeft = True
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = 9          # A4
+
+    _write_header(ws, records)
+    _write_table_header(ws)
+    last = _write_rows(ws, records)
+    _write_total(ws, FIRST_DATA_ROW, last)
+
     wb.save(path)
     return path
