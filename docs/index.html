@@ -1006,17 +1006,18 @@ async function save(rec, container){
 }
 
 /* ═══════════ تصدير الإكسل — سجل المشتريات المحلية ═══════════
-   مطابق للنموذج المعتمد: ترويسة الجمعية، جدول باثني عشر عموداً،
+   مطابق للنموذج المعتمد: ترويسة الجمعية، جدول بأحد عشر عموداً،
    ثم صف الإجمالي بمعادلات جمع. ملاحظات الفحص تبقى في الموقع،
    وعمود «ملاحظات» يُترك فاضياً للجمعية كما في النموذج.            */
 const HEADER_LINES = [
   "المملكة العربية السعودية",
-  "جمعية.....",
+  "جمعية تحفيظ القرآن الكريم بالدائر",
   "مسجلة بالمركز الوطني للقطاع غير الربحي",
-  "ترخيص رقم ",
+  "ترخيص رقم 3118",
   "رقم الاسترداد (    )",
 ];
 const SHEET_TITLE = " سجل المشتريات المحلية  ";
+const PERIOD_START = "2026/01/01";   // بداية الفترة ثابتة بطلب الجمعية
 const TOTAL_LABEL = "الاجمـــــــالي";
 
 const ACC_INT = '_(* #,##0_);_(* \\(#,##0\\);_(* "-"??_);_(@_)';
@@ -1034,11 +1035,10 @@ const COLUMNS = [
   ["القيمة قبل الضريبة ",   "net_amount",   21.5,    ACC_DEC,      "center", true],
   ["ضريبة القيمة المضافة ", "vat_amount",   24.375,  ACC_DEC,      "center", true],
   ["القيمة بعد الضريبة ",   "total_amount", 21.375,  ACC_DEC,      "center", true],
-  ["رقم القيد المحاسبي ",   "_entry_no",    19.625,  "General",    "center", false],
   ["ملاحظات",               "_notes",       19.125,  ACC_INT,      "center", true],
 ];
 const SUM_KEYS = ["net_amount", "vat_amount", "total_amount"];
-const MANUAL_KEYS = ["_description", "_entry_no", "_notes"];   // تُعبّأ يدوياً
+const MANUAL_KEYS = ["_description", "_notes"];   // تُعبّأ يدوياً
 const HEADER_NO_WRAP = ["seller_name"];
 const RIGHT_MEDIUM = ["total_amount", "_notes"];
 const LAST_KEY = "_notes";
@@ -1052,9 +1052,8 @@ const SUM_FILL = {type:"pattern", pattern:"solid", fgColor:{argb:"FFFFFF00"}};
 function periodLine(records){
   const dates = records.map(r => formatDate(r.invoice_date))
     .filter(d => d && /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
-  if (!dates.length) return "الفترة من                :";
-  const f = d => d.replace(/-/g, "/");
-  return `الفترة من ${f(dates[0])}م  :  ${f(dates[dates.length-1])} م`;
+  if (!dates.length) return `الفترة من ${PERIOD_START}م  :`;
+  return `الفترة من ${PERIOD_START}م  :  ${dates[dates.length-1].replace(/-/g, "/")} م`;
 }
 
 function vatRate(r){
@@ -1156,7 +1155,7 @@ $("#btnExcel").onclick = async () => {
 
     // ————— صف الإجمالي —————
     const lastRow = FIRST_ROW + count - 1, totalRow = lastRow + 1;
-    for (const col of [2,3,4,5,6,7,11,12])
+    for (const col of [2,3,4,5,6,7,11])
       ws.getCell(totalRow, col).font = {name:"Arial", size:col >= 11 ? 12 : 11};
     ws.mergeCells(totalRow, 1, totalRow, 7);
     const label = ws.getCell(totalRow, 1);

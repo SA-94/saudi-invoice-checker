@@ -2,7 +2,7 @@
 """كتابة نتائج الفحص بصيغة «سجل المشتريات المحلية» الرسمي.
 
 النموذج مطابق خلية بخلية للنموذج المعتمد: ترويسة الجمعية، ثم جدول
-باثني عشر عموداً لكل عمود تنسيقه وحدوده، ثم صف الإجمالي بمعادلات جمع.
+بأحد عشر عموداً لكل عمود تنسيقه وحدوده، ثم صف الإجمالي بمعادلات جمع.
 ملاحظات الفحص تظهر في الواجهة فقط، وعمود «ملاحظات» يُترك للجمعية.
 """
 from openpyxl import Workbook
@@ -14,12 +14,13 @@ from . import validate
 # ————— نصوص الترويسة —————
 HEADER_LINES = [
     "المملكة العربية السعودية",
-    "جمعية.....",
+    "جمعية تحفيظ القرآن الكريم بالدائر",
     "مسجلة بالمركز الوطني للقطاع غير الربحي",
-    "ترخيص رقم ",
+    "ترخيص رقم 3118",
     "رقم الاسترداد (    )",
 ]
 TITLE = " سجل المشتريات المحلية  "
+PERIOD_START = "2026/01/01"   # بداية الفترة ثابتة بطلب الجمعية
 TOTAL_LABEL = "الاجمـــــــالي"
 
 # ————— صيغ الأرقام —————
@@ -40,15 +41,14 @@ COLUMNS = [
     ("القيمة قبل الضريبة ",   "net_amount",   21.5,    ACC_DEC,   "center", True),
     ("ضريبة القيمة المضافة ", "vat_amount",   24.375,  ACC_DEC,   "center", True),
     ("القيمة بعد الضريبة ",   "total_amount", 21.375,  ACC_DEC,   "center", True),
-    ("رقم القيد المحاسبي ",   "_entry_no",    19.625,  "General", "center", False),
     ("ملاحظات",               "_notes",       19.125,  ACC_INT,   "center", True),
 ]
 SUM_KEYS = ("net_amount", "vat_amount", "total_amount")
-MANUAL_KEYS = ("_description", "_entry_no", "_notes")   # تُعبّأ يدوياً
+MANUAL_KEYS = ("_description", "_notes")   # تُعبّأ يدوياً
 
 # عناوين بلا التفاف نص (عمود «اسم المورد» فقط)، وأعمدة حدّها الأيمن عريض
 HEADER_NO_WRAP = {"seller_name"}
-RIGHT_MEDIUM = {"total_amount", "_notes"}   # J و L في النموذج
+RIGHT_MEDIUM = {"total_amount", "_notes"}   # J و K
 LAST_COLUMN = "_notes"
 TOP_HAIR_FIRST_ROW = {"_description"}       # F في النموذج حدّها العلوي رفيع
 
@@ -75,12 +75,11 @@ DATA_ROW_HEIGHT = 30.0
 
 
 def _period_line(records):
-    """سطر الفترة، مبني من أقدم وأحدث تاريخ فاتورة."""
+    """سطر الفترة: من بداية الفترة الثابتة إلى أحدث تاريخ فاتورة."""
     dates = [d for d in (validate.parse_date(r.get("invoice_date")) for r in records) if d]
     if not dates:
-        return "الفترة من                :"
-    fmt = lambda d: d.strftime("%Y/%m/%d")
-    return f"الفترة من {fmt(min(dates))}م  :  {fmt(max(dates))} م"
+        return f"الفترة من {PERIOD_START}م  :"
+    return f"الفترة من {PERIOD_START}م  :  {max(dates).strftime('%Y/%m/%d')} م"
 
 
 def _vat_rate(rec):
