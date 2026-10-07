@@ -1006,8 +1006,9 @@ async function save(rec, container){
 }
 
 /* ═══════════ تصدير الإكسل — سجل المشتريات المحلية ═══════════
-   مطابق للنموذج المعتمد: ترويسة الجمعية، جدول بعشرة أعمدة،
-   ثم صف الإجمالي بمعادلات جمع. ملاحظات الفحص تبقى في الموقع.     */
+   مطابق للنموذج المعتمد: ترويسة الجمعية، جدول بأحد عشر عموداً،
+   ثم صف الإجمالي بمعادلات جمع. ملاحظات الفحص تبقى في الموقع،
+   وعمود «ملاحظات» يُترك فاضياً للجمعية كما في النموذج.            */
 const HEADER_LINES = [
   "المملكة العربية السعودية",
   "جمعية تحفيظ القرآن الكريم بالدائر",
@@ -1034,12 +1035,13 @@ const COLUMNS = [
   ["القيمة قبل الضريبة ",   "net_amount",   21.5,    ACC_DEC,      "center", true],
   ["ضريبة القيمة المضافة ", "vat_amount",   24.375,  ACC_DEC,      "center", true],
   ["القيمة بعد الضريبة ",   "total_amount", 21.375,  ACC_DEC,      "center", true],
+  ["ملاحظات",               "_notes",       19.125,  ACC_INT,      "center", true],
 ];
 const SUM_KEYS = ["net_amount", "vat_amount", "total_amount"];
-const MANUAL_KEYS = ["_description"];   // تُعبّأ يدوياً
+const MANUAL_KEYS = ["_description", "_notes"];   // تُعبّأ يدوياً
 const HEADER_NO_WRAP = ["seller_name"];
-const RIGHT_MEDIUM = ["total_amount"];
-const LAST_KEY = "total_amount";
+const RIGHT_MEDIUM = ["total_amount", "_notes"];
+const LAST_KEY = "_notes";
 const TOP_HAIR = ["_description"];
 const MIN_ROWS = 13, HEADER_ROW = 7, FIRST_ROW = 8;
 
@@ -1143,7 +1145,7 @@ $("#btnExcel").onclick = async () => {
         const col = j + 1;
         const c = ws.getCell(rowNum, col);
         c.value = cellValue(rec, key, i + 1);
-        c.font = {name:"Arial", size:16, bold:true};
+        c.font = {name:"Arial", size:16, bold: key !== LAST_KEY};
         c.fill = TD_FILL;
         c.numFmt = fmt;
         c.alignment = {horizontal: halign, vertical:"middle", wrapText: wrap};
@@ -1153,8 +1155,8 @@ $("#btnExcel").onclick = async () => {
 
     // ————— صف الإجمالي —————
     const lastRow = FIRST_ROW + count - 1, totalRow = lastRow + 1;
-    for (let col = 2; col <= 7; col++)
-      ws.getCell(totalRow, col).font = {name:"Arial", size:11};
+    for (const col of [2,3,4,5,6,7,11])
+      ws.getCell(totalRow, col).font = {name:"Arial", size:col >= 11 ? 12 : 11};
     ws.mergeCells(totalRow, 1, totalRow, 7);
     const label = ws.getCell(totalRow, 1);
     label.value = TOTAL_LABEL;

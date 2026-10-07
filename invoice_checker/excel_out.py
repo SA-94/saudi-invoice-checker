@@ -2,8 +2,8 @@
 """كتابة نتائج الفحص بصيغة «سجل المشتريات المحلية» الرسمي.
 
 النموذج مطابق خلية بخلية للنموذج المعتمد: ترويسة الجمعية، ثم جدول
-بعشرة أعمدة لكل عمود تنسيقه وحدوده، ثم صف الإجمالي بمعادلات جمع.
-ملاحظات الفحص تظهر في الواجهة فقط، وما تنكتب في الملف.
+بأحد عشر عموداً لكل عمود تنسيقه وحدوده، ثم صف الإجمالي بمعادلات جمع.
+ملاحظات الفحص تظهر في الواجهة فقط، وعمود «ملاحظات» يُترك للجمعية.
 """
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Side
@@ -41,14 +41,15 @@ COLUMNS = [
     ("القيمة قبل الضريبة ",   "net_amount",   21.5,    ACC_DEC,   "center", True),
     ("ضريبة القيمة المضافة ", "vat_amount",   24.375,  ACC_DEC,   "center", True),
     ("القيمة بعد الضريبة ",   "total_amount", 21.375,  ACC_DEC,   "center", True),
+    ("ملاحظات",               "_notes",       19.125,  ACC_INT,   "center", True),
 ]
 SUM_KEYS = ("net_amount", "vat_amount", "total_amount")
-MANUAL_KEYS = ("_description",)   # تُعبّأ يدوياً
+MANUAL_KEYS = ("_description", "_notes")   # تُعبّأ يدوياً
 
 # عناوين بلا التفاف نص (عمود «اسم المورد» فقط)، وأعمدة حدّها الأيمن عريض
 HEADER_NO_WRAP = {"seller_name"}
-RIGHT_MEDIUM = {"total_amount"}   # J آخر عمود
-LAST_COLUMN = "total_amount"
+RIGHT_MEDIUM = {"total_amount", "_notes"}   # J و K
+LAST_COLUMN = "_notes"
 TOP_HAIR_FIRST_ROW = {"_description"}       # F في النموذج حدّها العلوي رفيع
 
 # ————— الأنماط —————
@@ -60,6 +61,7 @@ MIN_DATA_ROWS = 13          # نبقي شكل النموذج حتى لو الف�
 TITLE_FONT = Font(name=FONT, size=16)
 BIG_FONT = Font(name=FONT, size=18, bold=True)
 BOLD16 = Font(name=FONT, size=16, bold=True)
+PLAIN16 = Font(name=FONT, size=16)
 
 TH_FILL = PatternFill("solid", fgColor=Color(theme=8, tint=0.8))
 TD_FILL = PatternFill("solid", fgColor=Color(theme=0, tint=0.0))
@@ -163,7 +165,7 @@ def _write_rows(ws, records):
 
         for col, (_, key, _, fmt, halign, wrap) in enumerate(COLUMNS, start=1):
             cell = ws.cell(row=row, column=col, value=_value(rec, key, i + 1))
-            cell.font = BOLD16
+            cell.font = PLAIN16 if key == LAST_COLUMN else BOLD16
             cell.fill = TD_FILL
             cell.number_format = fmt
             cell.alignment = Alignment(horizontal=halign, vertical="center", wrap_text=wrap)
