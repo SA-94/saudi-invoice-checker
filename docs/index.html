@@ -4,189 +4,419 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>فاحص الفواتير الضريبية</title>
-<meta name="description" content="يفحص الفواتير الضريبية السعودية عبر باركود الزاتكا ويصدّر البيانات إلى إكسل. يشتغل داخل متصفحك بالكامل.">
+<meta name="description" content="يفحص الفواتير الضريبية السعودية عبر باركود الزاتكا ويجهّز سجل المشتريات المحلية في ملف إكسل.">
+<meta name="author" content="فهد عبدالله فهيد القحطاني">
+<meta name="theme-color" content="#0b3a34">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230e5a50'/%3E%3Cpath d='M20 14h24v36l-4-3-4 3-4-3-4 3-4-3-4 3z' fill='none' stroke='%23e3c27d' stroke-width='3.5' stroke-linejoin='round'/%3E%3Cpath d='m25 31 5 5 9-10' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f6f6f3; --card:#fff; --line:#e3e3dd; --line-soft:#efefe9;
-  --ink:#1c1c1a; --ink-soft:#6b6b63; --ink-faint:#9a9a90;
-  --accent:#0f6b7d; --accent-soft:#e6f2f4;
+  --bg:#f4f2ec; --card:#fff; --line:#e3dfd4; --line-soft:#eeebe3;
+  --ink:#152321; --ink-soft:#5a6764; --ink-faint:#8f9894;
+  --brand:#0e5a50; --brand-strong:#0a463f; --brand-soft:#e3efec; --on-brand:#fff;
+  --gold:#b0813a; --gold-bright:#e3c27d; --gold-soft:#f6eddb; --gold-line:#e5cf9f;
+  --accent:var(--brand); --accent-soft:var(--brand-soft);
   --ok:#15803d; --ok-bg:#dcfce7; --ok-line:#86efac;
   --warn:#b45309; --warn-bg:#fef3c7; --warn-line:#fcd34d;
   --bad:#b91c1c; --bad-bg:#fee2e2; --bad-line:#fca5a5;
-  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);
+  --hero-1:#072723; --hero-2:#0b3f38; --hero-3:#11605a;
+  --shadow:0 1px 2px rgba(16,32,29,.05),0 8px 24px -10px rgba(16,32,29,.14);
+  --shadow-lg:0 2px 6px rgba(16,32,29,.05),0 30px 70px -24px rgba(7,39,35,.38);
+  --font:"IBM Plex Sans Arabic","Segoe UI","Noto Sans Arabic",Tahoma,sans-serif;
+  --font-display:"Noto Kufi Arabic","IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;
 }
 @media (prefers-color-scheme:dark){
   :root{
-    --bg:#171715; --card:#211f1d; --line:#38352f; --line-soft:#2b2926;
-    --ink:#f2f0eb; --ink-soft:#a8a49b; --ink-faint:#736f66;
-    --accent:#4fb3c8; --accent-soft:#153037;
+    --bg:#0a100f; --card:#111a18; --line:#24312e; --line-soft:#182321;
+    --ink:#ecf1ef; --ink-soft:#a1ada9; --ink-faint:#6b7773;
+    --brand:#4fc1ad; --brand-strong:#86dccd; --brand-soft:#11302b; --on-brand:#04201b;
+    --gold:#d9b46c; --gold-bright:#e9c987; --gold-soft:#2a2214; --gold-line:#5a4723;
     --ok:#6ee7a0; --ok-bg:#0f2e1d; --ok-line:#1f6b40;
     --warn:#fbbf24; --warn-bg:#33260a; --warn-line:#7c5a10;
     --bad:#fca5a5; --bad-bg:#3a1616; --bad-line:#8a2c2c;
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+    --hero-1:#040d0c; --hero-2:#082521; --hero-3:#0d3a33;
+    --shadow:0 1px 2px rgba(0,0,0,.35),0 8px 24px -10px rgba(0,0,0,.5);
+    --shadow-lg:0 2px 6px rgba(0,0,0,.3),0 30px 70px -24px rgba(0,0,0,.7);
   }
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);
-  font-family:"Segoe UI","Noto Sans Arabic",Tahoma,Arial,sans-serif;
-  font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
-.wrap{max-width:1440px;margin:0 auto;padding:32px 24px 80px}
-header{margin-bottom:26px}
-h1{font-size:27px;font-weight:700;margin:0 0 6px;letter-spacing:-.2px}
-.sub{color:var(--ink-soft);margin:0}
-.sub b{color:var(--ink);font-weight:600}
-
-.drop{background:var(--card);border:2px dashed var(--line);border-radius:14px;
-  padding:52px 24px;text-align:center;cursor:pointer;transition:.15s}
-.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
-.drop-icon{font-size:40px;line-height:1;margin-bottom:12px;opacity:.75}
-.drop-main{font-size:17px;font-weight:600;margin-bottom:6px}
-.drop-hint{color:var(--ink-soft);font-size:13.5px}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);
+  font-family:var(--font);font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+main{flex:1}
+.wrap{max-width:1440px;margin:0 auto;padding:0 24px}
+.narrow{max-width:1040px}
+svg.i{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;vertical-align:-.15em}
+.hidden{display:none!important}
 #picker{display:none}
 
-.busy{display:none;background:var(--card);border:1px solid var(--line);
-  border-radius:14px;padding:26px;text-align:center;box-shadow:var(--shadow)}
+/* ═══════════ الواجهة العلوية ═══════════ */
+.hero{position:relative;overflow:hidden;color:#fff;
+  background:radial-gradient(120% 90% at 85% -10%,var(--hero-3) 0%,transparent 60%),
+             linear-gradient(165deg,var(--hero-1) 0%,var(--hero-2) 100%)}
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.9;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Cg fill='none' stroke='%23e3c27d' stroke-opacity='.13'%3E%3Crect x='24' y='24' width='40' height='40'/%3E%3Crect x='24' y='24' width='40' height='40' transform='rotate(45 44 44)'/%3E%3Ccircle cx='44' cy='44' r='9'/%3E%3Cpath d='M0 44h10M78 44h10M44 0v10M44 78v10'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-image:radial-gradient(90% 120% at 50% 0%,#000 30%,transparent 80%);
+          mask-image:radial-gradient(90% 120% at 50% 0%,#000 30%,transparent 80%)}
+.hero::after{content:"";position:absolute;inset:auto 0 0 0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(227,194,125,.45),transparent)}
+.topbar{position:relative;display:flex;align-items:center;gap:12px;padding-top:20px;padding-bottom:20px}
+.brand{display:flex;align-items:center;gap:11px;color:#fff;text-decoration:none}
+.brand-mark{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(145deg,rgba(227,194,125,.24),rgba(227,194,125,.06));
+  border:1px solid rgba(227,194,125,.4);color:#e3c27d;font-size:20px}
+.brand-name{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:-.1px}
+.topbar .spacer{flex:1}
+.topbar .chip{font-size:12.5px;color:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.16);
+  border-radius:99px;padding:4px 12px;background:rgba(255,255,255,.04)}
+
+.hero-inner{position:relative;text-align:center;padding-top:42px;padding-bottom:128px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#e9cf96;
+  border:1px solid rgba(227,194,125,.35);background:rgba(227,194,125,.08);border-radius:99px;padding:5px 15px}
+.hero h1{font-family:var(--font-display);font-weight:800;font-size:clamp(32px,5.2vw,56px);
+  line-height:1.35;margin:22px 0 16px;letter-spacing:-.5px}
+.hero h1 .gold{background:linear-gradient(100deg,#f3dca6 0%,#d6aa5c 50%,#f0d396 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{max-width:690px;margin:0 auto;font-size:17px;line-height:1.95;color:rgba(255,255,255,.78)}
+.trust{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 26px;margin-top:28px;
+  font-size:13.5px;color:rgba(255,255,255,.82)}
+.trust span{display:inline-flex;align-items:center;gap:7px}
+.trust svg{color:#e3c27d;font-size:16px}
+
+/* ═══════════ منطقة الإسقاط ═══════════ */
+.stage{position:relative;margin-top:-84px;z-index:2}
+.drop{position:relative;background:var(--card);border:1px solid var(--line);border-radius:24px;
+  padding:46px 28px 40px;text-align:center;cursor:pointer;box-shadow:var(--shadow-lg);transition:transform .2s}
+.drop::before{content:"";position:absolute;inset:12px;border-radius:16px;pointer-events:none;
+  border:2px dashed var(--line);transition:border-color .2s,background .2s}
+.drop:hover::before,.drop.over::before{border-color:var(--brand);background:var(--brand-soft)}
+.drop.over{transform:scale(1.008)}
+.drop>*{position:relative}
+.drop-icon{width:72px;height:72px;margin:0 auto 18px;border-radius:22px;display:grid;place-items:center;
+  font-size:32px;color:var(--brand);background:var(--brand-soft);border:1px solid var(--line);transition:transform .25s}
+.drop:hover .drop-icon,.drop.over .drop-icon{transform:translateY(-4px)}
+.drop-main{font-family:var(--font-display);font-size:21px;font-weight:700;margin-bottom:6px}
+.drop-hint{color:var(--ink-soft);font-size:14.5px}
+.formats{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:18px}
+.formats span{font-size:11.5px;font-weight:600;letter-spacing:.4px;color:var(--ink-soft);
+  border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:2px 9px;direction:ltr}
+.drop .btn{margin-top:22px}
+.demo-row{text-align:center;margin:18px 0 0;color:var(--ink-soft);font-size:14px}
+.linkbtn{font:inherit;font-weight:600;color:var(--brand);background:none;border:0;padding:2px 4px;cursor:pointer;
+  text-decoration:underline;text-decoration-color:var(--gold-line);text-underline-offset:5px;text-decoration-thickness:2px}
+.linkbtn:hover{color:var(--brand-strong);text-decoration-color:var(--gold)}
+
+.busy{display:none;background:var(--card);border:1px solid var(--line);border-radius:24px;
+  padding:40px 28px;text-align:center;box-shadow:var(--shadow-lg)}
 .busy.on{display:block}
-.bar{height:5px;background:var(--line-soft);border-radius:99px;overflow:hidden;margin-top:14px}
-.bar i{display:block;height:100%;background:var(--accent);border-radius:99px;
-  width:0;transition:width .2s}
+.spinner{width:44px;height:44px;margin:0 auto 16px;border-radius:50%;
+  border:3px solid var(--brand-soft);border-top-color:var(--brand);animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#busyText{font-weight:600}
+.busy-sub{color:var(--ink-faint);font-size:13px;margin-top:4px}
+.bar{height:6px;max-width:420px;margin:18px auto 0;background:var(--line-soft);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:99px;transition:width .25s;
+  background:linear-gradient(90deg,var(--brand),var(--gold))}
 
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:26px 0 18px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
-  padding:16px 18px;box-shadow:var(--shadow)}
-.card .n{font-size:30px;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
-.card .t{color:var(--ink-soft);font-size:13.5px;margin-top:2px}
-.card.ok .n{color:var(--ok)} .card.warn .n{color:var(--warn)} .card.bad .n{color:var(--bad)}
+/* ═══════════ الأقسام التعريفية ═══════════ */
+.section-head{text-align:center;margin:84px 0 30px}
+.section-head .kicker{font-size:13px;font-weight:700;color:var(--gold);letter-spacing:.3px}
+.section-head h2{font-family:var(--font-display);font-size:clamp(23px,3vw,30px);font-weight:700;margin:6px 0 0}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.step{position:relative;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px 24px;box-shadow:var(--shadow)}
+.step-n{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;margin-bottom:14px;
+  font-family:var(--font-display);font-weight:800;font-size:17px;color:var(--gold);
+  background:var(--gold-soft);border:1px solid var(--gold-line)}
+.step h3,.feat h3{font-size:16.5px;font-weight:700;margin:0 0 6px}
+.step p,.feat p{margin:0;color:var(--ink-soft);font-size:14px;line-height:1.85}
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.feat{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;
+  box-shadow:var(--shadow);transition:transform .2s,border-color .2s}
+.feat:hover{transform:translateY(-3px);border-color:var(--gold-line)}
+.feat-icon{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;margin-bottom:14px;
+  font-size:21px;color:var(--brand);background:var(--brand-soft)}
+@media (max-width:900px){.steps,.features{grid-template-columns:1fr 1fr}}
+@media (max-width:620px){.steps,.features{grid-template-columns:1fr}}
 
-.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
-button{font:inherit;font-size:14px;font-weight:600;cursor:pointer;border-radius:9px;
-  padding:9px 17px;border:1px solid var(--line);background:var(--card);color:var(--ink);transition:.13s}
-button:hover{border-color:var(--accent);color:var(--accent)}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-button.primary:hover{opacity:.88;color:#fff}
-button:disabled{opacity:.45;cursor:not-allowed}
-.spacer{flex:1}
+/* ═══════════ النتائج ═══════════ */
+body.has-results .hero-inner,body.has-results .drop,body.has-results .demo-row,
+body.has-results #landing,body.working .drop,body.working .demo-row,body.working #landing{display:none}
+body.has-results .stage{margin-top:28px}
+.res-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px;margin:30px 0 20px}
+.res-head h2{font-family:var(--font-display);font-size:25px;font-weight:700;margin:0}
+.res-head p{margin:2px 0 0;color:var(--ink-soft);font-size:14px}
+.res-head .spacer{flex:1}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 
-.tablebox{background:var(--card);border:1px solid var(--line);border-radius:12px;
-  overflow:hidden;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-size:14.5px;font-weight:600;
+  cursor:pointer;border-radius:12px;padding:10px 20px;border:1px solid var(--line);background:var(--card);
+  color:var(--ink);transition:background .15s,border-color .15s,color .15s,transform .1s,box-shadow .15s}
+.btn:hover{border-color:var(--brand);color:var(--brand)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(180deg,var(--brand),var(--brand-strong));border-color:transparent;
+  color:var(--on-brand);box-shadow:0 6px 18px -8px var(--brand)}
+@media (prefers-color-scheme:dark){.btn.primary{background:var(--brand)}}
+.btn.primary:hover{color:var(--on-brand);filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn svg{font-size:17px}
+
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+@media (max-width:820px){.cards{grid-template-columns:1fr 1fr}}
+.card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;
+  padding:18px 20px 16px;box-shadow:var(--shadow);overflow:hidden}
+.card-top{display:flex;align-items:center;justify-content:space-between}
+.card .n{font-family:var(--font-display);font-size:32px;font-weight:700;line-height:1.3;font-variant-numeric:tabular-nums}
+.card .t{color:var(--ink-soft);font-size:13.5px;font-weight:500}
+.card-icon{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:19px;
+  background:var(--brand-soft);color:var(--brand)}
+.card .meter{height:4px;border-radius:99px;background:var(--line-soft);margin-top:12px;overflow:hidden}
+.card .meter i{display:block;height:100%;width:0;border-radius:99px;background:var(--brand);transition:width .5s}
+.card.ok .n{color:var(--ok)} .card.ok .card-icon{background:var(--ok-bg);color:var(--ok)} .card.ok .meter i{background:var(--ok)}
+.card.warn .n{color:var(--warn)} .card.warn .card-icon{background:var(--warn-bg);color:var(--warn)} .card.warn .meter i{background:var(--warn)}
+.card.bad .n{color:var(--bad)} .card.bad .card-icon{background:var(--bad-bg);color:var(--bad)} .card.bad .meter i{background:var(--bad)}
+
+.tablebox{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
 .scroll{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:14px;min-width:1240px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:1440px}
 th{background:var(--line-soft);color:var(--ink-soft);font-weight:600;font-size:12.5px;
-  text-align:right;padding:11px 10px;white-space:nowrap;border-bottom:1px solid var(--line)}
-td{padding:10px;border-bottom:1px solid var(--line-soft);vertical-align:middle;white-space:nowrap}
+  text-align:right;padding:13px 12px;white-space:nowrap;border-bottom:1px solid var(--line)}
+td{padding:12px;border-bottom:1px solid var(--line-soft);vertical-align:middle;white-space:nowrap}
 td.wrapname{white-space:normal;min-width:130px}
 tbody tr.main{cursor:pointer;transition:background .12s}
-tbody tr.main:hover,tr.main.open{background:var(--accent-soft)}
+tbody tr.main:hover,tr.main.open{background:var(--brand-soft)}
+tfoot td{background:var(--line-soft);font-weight:700;border-bottom:0;border-top:1px solid var(--line)}
+tfoot .lbl{color:var(--ink-soft);font-weight:600}
 .num{font-variant-numeric:tabular-nums;text-align:left;direction:ltr}
 .mono{font-family:"Cascadia Mono",Consolas,monospace;font-size:12.5px;direction:ltr;text-align:left}
 .fname{max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--ink-soft);font-size:12.5px}
 .caret{display:inline-block;transition:transform .18s;color:var(--ink-faint);font-size:11px}
 tr.main.open .caret{transform:rotate(-90deg)}
+td.notes{white-space:normal;min-width:230px;max-width:330px;font-size:13px;line-height:1.6}
+.note-text{color:var(--ink)}
+.note-ok{color:var(--ok);font-weight:600;font-size:12.5px}
+.more{display:inline-block;margin-inline-start:6px;font-size:11px;font-weight:700;padding:0 7px;border-radius:99px;
+  background:var(--line-soft);border:1px solid var(--line);color:var(--ink-soft);direction:ltr;unicode-bidi:isolate}
 
-.pill{display:inline-block;padding:3px 11px;border-radius:99px;font-size:12.5px;
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:99px;font-size:12.5px;
   font-weight:600;white-space:nowrap;border:1px solid}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 .pill.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
 .pill.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
 .pill.bad{background:var(--bad-bg);color:var(--bad);border-color:var(--bad-line)}
-.miss{color:var(--bad);font-size:12px;font-weight:600;background:var(--bad-bg);
-  border:1px solid var(--bad-line);border-radius:5px;padding:1px 8px}
-.tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:11px;font-weight:600;
-  background:var(--accent-soft);color:var(--accent);margin-inline-start:6px}
+.miss{color:var(--bad);font-family:var(--font);font-size:12px;font-weight:600;background:var(--bad-bg);
+  border:1px solid var(--bad-line);border-radius:6px;padding:1px 8px}
+.tag{display:inline-block;padding:1px 7px;border-radius:6px;font-family:var(--font);font-size:11px;font-weight:600;
+  background:var(--gold-soft);color:var(--gold);border:1px solid var(--gold-line);margin-inline-start:6px}
 .opt{font-weight:400;color:var(--ink-faint);font-size:11.5px}
 
 tr.detail>td{padding:0;background:var(--bg);border-bottom:1px solid var(--line)}
-.panel{display:grid;grid-template-columns:280px 1fr;gap:22px;padding:22px 24px}
+.panel{display:grid;grid-template-columns:290px 1fr;gap:26px;padding:24px 26px;white-space:normal}
 @media (max-width:820px){.panel{grid-template-columns:1fr}}
-.preview{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--card);
-  max-height:330px;display:flex;align-items:center;justify-content:center}
-.preview img{width:100%;height:auto;max-height:330px;object-fit:contain;display:block}
-h4{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--ink-soft)}
-.alerts{list-style:none;margin:0 0 20px;padding:0}
-.alerts li{background:var(--bad-bg);border:1px solid var(--bad-line);color:var(--bad);
-  border-radius:8px;padding:9px 13px;margin-bottom:7px;font-size:13.5px}
+.preview{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);
+  max-height:360px;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow)}
+.preview a{display:block;width:100%}
+.preview img{width:100%;height:auto;max-height:360px;object-fit:contain;display:block}
+h4{margin:0 0 10px;font-size:13.5px;font-weight:700;color:var(--ink)}
+.alerts{list-style:none;margin:0 0 22px;padding:0}
+.alerts li{display:flex;gap:9px;align-items:flex-start;background:var(--bad-bg);border:1px solid var(--bad-line);color:var(--bad);
+  border-radius:10px;padding:9px 13px;margin-bottom:7px;font-size:13.5px}
+.alerts li::before{content:"!";flex:none;width:18px;height:18px;margin-top:2px;border-radius:50%;display:grid;place-items:center;
+  font-size:11px;font-weight:800;background:currentColor;color:var(--card)}
 .alerts li.soft{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-bottom:16px}
 label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:4px;font-weight:600}
-input{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:8px;
+input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;
   background:var(--card);color:var(--ink);font:inherit;font-size:14px}
-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
 input.locked{background:var(--line-soft);color:var(--ink-soft)}
-.section{margin-bottom:18px}
+.section{margin-bottom:20px}
 .note{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px}
 .checks{display:flex;flex-wrap:wrap;gap:6px}
-.chk{font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid var(--line);
+.chk{font-size:12px;padding:3px 10px;border-radius:7px;border:1px solid var(--line);
   background:var(--card);color:var(--ink-soft)}
 .chk.y{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
 .chk.n{background:var(--bad-bg);border-color:var(--bad-line);color:var(--bad)}
 .err{background:var(--bad-bg);border:1px solid var(--bad-line);color:var(--bad);
-  border-radius:10px;padding:13px 16px;margin-bottom:16px;font-size:14px;display:none}
+  border-radius:12px;padding:13px 16px;margin-bottom:16px;font-size:14px;display:none}
 .err.on{display:block}
-.hidden{display:none}
-footer{margin-top:34px;color:var(--ink-faint);font-size:12.5px;text-align:center}
-footer a{color:var(--ink-soft)}
+
+/* ═══════════ التذييل ═══════════ */
+.site-foot{margin-top:90px;border-top:1px solid var(--line);background:var(--card)}
+.foot-inner{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px 18px;
+  padding-top:22px;padding-bottom:22px;font-size:14px;color:var(--ink-soft);text-align:center}
+.foot-inner b{color:var(--ink);font-weight:700}
+.wa{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:700;font-size:14px;
+  color:#fff;background:#1fa855;border-radius:99px;padding:7px 16px 7px 14px;
+  box-shadow:0 6px 16px -8px #1fa855;transition:filter .15s,transform .1s}
+.wa:hover{filter:brightness(1.08)}
+.wa:active{transform:translateY(1px)}
+.wa svg{width:18px;height:18px;fill:currentColor}
+
+@media (max-width:620px){
+  .wrap{padding:0 16px}
+  .topbar .chip{display:none}
+  .hero-inner{padding-top:26px;padding-bottom:110px}
+  .lead{font-size:15.5px}
+  .drop{padding:38px 18px 32px}
+  .section-head{margin-top:60px}
+  .res-head .toolbar{width:100%}
+  .res-head .toolbar .btn{flex:1}
+}
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <header>
-    <h1>فاحص الفواتير الضريبية</h1>
-    <p class="sub">يقرأ <b>باركود الزاتكا</b> ويستخرج بيانات المورد والمبالغ بدقة كاملة، ويفحص اكتمال الفاتورة.</p>
-  </header>
-
-  <div class="err" id="err"></div>
-
-  <div class="drop" id="drop">
-    <div class="drop-icon">🧾</div>
-    <div class="drop-main">اسحب الفواتير هنا</div>
-    <div class="drop-hint">أو اضغط للاختيار &nbsp;·&nbsp; JPG، PNG، WEBP، PDF &nbsp;·&nbsp; تقدر تسحب مجلد كامل</div>
-    <input type="file" id="picker" multiple accept="image/*,.pdf">
+<header class="hero">
+  <div class="wrap topbar">
+    <a class="brand" href="./">
+      <span class="brand-mark"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="m9 11 2 2 4-4"/></svg></span>
+      <span class="brand-name">فاحص الفواتير الضريبية</span>
+    </a>
+    <span class="spacer"></span>
+    <span class="chip">مجاني · بدون تسجيل</span>
   </div>
 
-  <div class="busy" id="busy">
-    <div id="busyText">أقرأ الفواتير…</div>
-    <div class="bar"><i id="barFill"></i></div>
+  <div class="wrap narrow hero-inner">
+    <span class="eyebrow"><svg class="i" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7zM14 14h3v3h-3z"/></svg>يقرأ باركود الزاتكا مباشرة</span>
+    <h1>افحص فواتيرك الضريبية<br><span class="gold">وجهّز سجل المشتريات في دقائق</span></h1>
+    <p class="lead">يفكّ باركود الفاتورة ويستخرج اسم المورد ورقمه الضريبي والتاريخ والمبالغ بدقة كاملة، ثم يفحص اكتمالها وصحة حسابها، ويطلع لك ملف إكسل بنموذج «سجل المشتريات المحلية».</p>
+    <div class="trust">
+      <span><svg class="i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>دقة كاملة من الباركود</span>
+      <span><svg class="i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>صور وملفات PDF</span>
+      <span><svg class="i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>إكسل جاهز للتسليم</span>
+    </div>
   </div>
+</header>
 
-  <div id="results" class="hidden">
-    <div class="cards">
-      <div class="card"><div class="n" id="cTotal">0</div><div class="t">فاتورة</div></div>
-      <div class="card ok"><div class="n" id="cOk">0</div><div class="t">سليمة</div></div>
-      <div class="card warn"><div class="n" id="cWarn">0</div><div class="t">تحتاج مراجعة</div></div>
-      <div class="card bad"><div class="n" id="cBad">0</div><div class="t">ناقصة</div></div>
+<main>
+  <div class="wrap">
+    <div class="stage narrow" style="margin-inline:auto">
+      <div class="err" id="err"></div>
+
+      <div class="drop" id="drop" role="button" tabindex="0" aria-label="اختيار الفواتير">
+        <div class="drop-icon"><svg class="i" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M20 15v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3"/></svg></div>
+        <div class="drop-main">اسحب الفواتير وأفلتها هنا</div>
+        <div class="drop-hint">فاتورة وحدة أو مجلد كامل — أو اضغط واختر من جهازك</div>
+        <div class="formats"><span>JPG</span><span>PNG</span><span>WEBP</span><span>PDF</span></div>
+        <span class="btn primary"><svg class="i" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 18v-6M9 15h6"/></svg>اختر الفواتير</span>
+        <input type="file" id="picker" multiple accept="image/*,.pdf">
+      </div>
+
+      <p class="demo-row">ما عندك فواتير الحين؟ <button class="linkbtn" id="btnDemo">جرّبه على فواتير تجريبية</button></p>
+
+      <div class="busy" id="busy">
+        <div class="spinner"></div>
+        <div id="busyText">أقرأ الفواتير…</div>
+        <div class="busy-sub" id="busySub"></div>
+        <div class="bar"><i id="barFill"></i></div>
+      </div>
     </div>
 
-    <div class="toolbar">
-      <button class="primary" id="btnExcel">⬇ تحميل ملف الإكسل</button>
-      <button id="btnMore">+ إضافة فواتير</button>
-      <div class="spacer"></div>
-      <button id="btnReset">مسح والبدء من جديد</button>
+    <div id="landing" class="narrow" style="margin-inline:auto">
+      <div class="section-head">
+        <div class="kicker">طريقة الاستخدام</div>
+        <h2>ثلاث خطوات وتخلص</h2>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">١</div><h3>ارفع الفواتير</h3>
+          <p>اسحب صور الفواتير أو ملفات PDF، وحدة وحدة أو مجلد كامل مرة وحدة.</p></div>
+        <div class="step"><div class="step-n">٢</div><h3>راجع الملاحظات</h3>
+          <p>كل فاتورة تطلع بحالتها وملاحظاتها، والناقص تعبّيه من صورة الفاتورة مباشرة.</p></div>
+        <div class="step"><div class="step-n">٣</div><h3>نزّل السجل</h3>
+          <p>ملف إكسل بنموذج «سجل المشتريات المحلية» بالترويسة وصف الإجمالي، جاهز للتسليم.</p></div>
+      </div>
+
+      <div class="section-head">
+        <div class="kicker">الفحوصات</div>
+        <h2>وش يفحص في كل فاتورة؟</h2>
+      </div>
+      <div class="features">
+        <div class="feat"><div class="feat-icon"><svg class="i" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7zM14 14h3v3h-3z"/></svg></div>
+          <h3>باركود الزاتكا</h3><p>يفكّ تشفير الباركود بدل قراءة الحبر، فالبيانات تطلع صحيحة حتى لو الصورة مايلة أو باهتة.</p></div>
+        <div class="feat"><div class="feat-icon"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01"/></svg></div>
+          <h3>صحة الحساب</h3><p>المبلغ قبل الضريبة مع الضريبة يساوي الإجمالي، ونسبة الضريبة ١٥٪ أو ٥٪ أو معفاة.</p></div>
+        <div class="feat"><div class="feat-icon"><svg class="i" viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg></div>
+          <h3>الأرقام الضريبية</h3><p>١٥ رقماً تبدأ بـ3 وتنتهي بـ3، ورقم المورد ما يتطابق مع رقم الجمعية.</p></div>
+        <div class="feat"><div class="feat-icon"><svg class="i" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></div>
+          <h3>الفواتير المكرّرة</h3><p>ينبّهك لو نفس الفاتورة انضافت مرتين، عشان ما تنحسب ضريبتها مرتين.</p></div>
+        <div class="feat"><div class="feat-icon"><svg class="i" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <h3>المطبوع مقابل الباركود</h3><p>اكتب المبلغ المطبوع على الفاتورة، وأي اختلاف عن المشفّر في الباركود يطلع ملاحظة.</p></div>
+        <div class="feat"><div class="feat-icon"><svg class="i" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <h3>فواتيرك تبقى عندك</h3><p>القراءة والفحص يتمّان على جهازك، والفواتير ما تُرسل لأي جهة.</p></div>
+      </div>
     </div>
 
-    <div class="tablebox"><div class="scroll"><table>
-      <thead><tr>
-        <th style="width:34px"></th>
-        <th style="width:112px">الحالة</th>
-        <th>تاريخ الفاتورة</th>
-        <th>اسم المورد</th>
-        <th>الرقم الضريبي للمورد</th>
-        <th>قبل الضريبة</th>
-        <th>الضريبة</th>
-        <th>شامل الضريبة</th>
-        <th>اسم الجمعية</th>
-        <th>الرقم الضريبي للجمعية</th>
-        <th>رقم الفاتورة</th>
-        <th>الملف</th>
-      </tr></thead>
-      <tbody id="rows"></tbody>
-    </table></div></div>
-  </div>
+    <section id="results" class="hidden">
+      <div class="res-head">
+        <div>
+          <h2>نتائج الفحص</h2>
+          <p>اضغط على أي فاتورة لعرض صورتها وملاحظاتها كاملة وتعبئة الناقص.</p>
+        </div>
+        <span class="spacer"></span>
+        <div class="toolbar">
+          <button class="btn ghost" id="btnReset"><svg class="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>البدء من جديد</button>
+          <button class="btn" id="btnMore"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>إضافة فواتير</button>
+          <button class="btn primary" id="btnExcel"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg><span>تحميل سجل المشتريات (إكسل)</span></button>
+        </div>
+      </div>
 
-  <footer>
-    كل شي يتم داخل متصفحك — ما تُرفع أي فاتورة لأي خادم.<br>
-    <a href="https://github.com/SA-94/saudi-invoice-checker">الكود على GitHub</a>
-  </footer>
-</div>
+      <div class="cards">
+        <div class="card"><div class="card-top"><div><div class="n" id="cTotal">0</div><div class="t">إجمالي الفواتير</div></div>
+          <div class="card-icon"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6"/></svg></div></div>
+          <div class="meter"><i style="width:100%"></i></div></div>
+        <div class="card ok"><div class="card-top"><div><div class="n" id="cOk">0</div><div class="t">سليمة</div></div>
+          <div class="card-icon"><svg class="i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div></div>
+          <div class="meter"><i id="mOk"></i></div></div>
+        <div class="card warn"><div class="card-top"><div><div class="n" id="cWarn">0</div><div class="t">تحتاج مراجعة</div></div>
+          <div class="card-icon"><svg class="i" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 20.6h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div></div>
+          <div class="meter"><i id="mWarn"></i></div></div>
+        <div class="card bad"><div class="card-top"><div><div class="n" id="cBad">0</div><div class="t">ناقصة</div></div>
+          <div class="card-icon"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div></div>
+          <div class="meter"><i id="mBad"></i></div></div>
+      </div>
+
+      <div class="tablebox"><div class="scroll"><table>
+        <thead><tr>
+          <th style="width:34px"></th>
+          <th style="width:118px">الحالة</th>
+          <th>ملاحظات</th>
+          <th>تاريخ الفاتورة</th>
+          <th>اسم المورد</th>
+          <th>الرقم الضريبي للمورد</th>
+          <th>قبل الضريبة</th>
+          <th>الضريبة</th>
+          <th>شامل الضريبة</th>
+          <th>اسم الجمعية</th>
+          <th>الرقم الضريبي للجمعية</th>
+          <th>رقم الفاتورة</th>
+          <th>الملف</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+        <tfoot><tr>
+          <td colspan="6" class="lbl">الإجمالي</td>
+          <td class="num" id="sumNet">—</td>
+          <td class="num" id="sumVat">—</td>
+          <td class="num" id="sumTotal">—</td>
+          <td colspan="4"></td>
+        </tr></tfoot>
+      </table></div></div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap foot-inner">
+    <span>© 2026 جميع الحقوق محفوظة — <b>فهد عبدالله فهيد القحطاني</b></span>
+    <a class="wa" href="https://wa.me/966535964292" target="_blank" rel="noopener" title="تواصل عبر واتساب" aria-label="تواصل عبر واتساب 0535964292">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+      <span dir="ltr">0535964292</span>
+    </a>
+  </div>
+</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.3/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
@@ -482,7 +712,10 @@ async function loadPdf(file){
     await page.render({canvasContext: canvas.getContext("2d"), viewport}).promise;
     pages.push(canvas);
   }
-  return {pages, text, url: pages.length ? pages[0].toDataURL("image/jpeg", 0.7) : null};
+  // رابط blob بدل data: — المتصفحات تمنع فتح data: في تبويب جديد
+  const url = pages.length ? await new Promise(resolve => pages[0].toBlob(
+    b => resolve(b ? URL.createObjectURL(b) : null), "image/jpeg", 0.8)) : null;
+  return {pages, text, url};
 }
 
 /* ═══════════ استخراج من النص (لملفات PDF) ═══════════ */
@@ -631,16 +864,27 @@ function check(rec){
   return {status: hardMissing ? MISSING : (softIssue ? REVIEW : OK), alerts, checks};
 }
 
+const DUPLICATE = "مكرّرة";
+
+/** يعلّم المكرّر. يُستدعى بعد كل تعديل، فيمسح علامة المرة السابقة أولاً. */
 function findDuplicates(records){
   const seen = new Map();
   for (const rec of records) {
+    rec.alerts = rec.alerts.filter(a => !a.startsWith(DUPLICATE));
+    // «تحتاج مراجعة» بدون أي ملاحظة ثانية = كان التكرار سببها الوحيد
+    if (rec.status === REVIEW && !rec.alerts.length) rec.status = OK;
+
+    // نفس المورد ونفس رقم الفاتورة، أو نفس باركود الزاتكا (فيه الوقت والمبلغ فما يتكرّر)
     const vat = vatDigits(rec.seller_vat), no = cleanText(rec.invoice_no);
-    const key = (vat && no) ? `${vat}|${no}` : (rec.qr_raw || null);
-    if (!key) continue;
-    if (seen.has(key)) {
-      rec.alerts.push(`مكرّرة — نفس فاتورة «${seen.get(key)}»`);
+    const keys = [];
+    if (vat && no) keys.push(`no:${vat}|${no}`);
+    if (rec.qr_raw && (rec.has_qr || !keys.length)) keys.push(`qr:${rec.qr_raw}`);
+    const first = keys.map(k => seen.get(k)).find(Boolean);
+    if (first) {
+      rec.alerts.push(`${DUPLICATE} — نفس فاتورة «${first}»`);
       if (rec.status === OK) rec.status = REVIEW;
-    } else seen.set(key, rec.file_name);
+    }
+    keys.forEach(k => { if (!seen.has(k)) seen.set(k, first || rec.file_name); });
   }
 }
 
@@ -661,7 +905,8 @@ async function buildRecord(file, manual){
     }
   } catch (e) {
     rec.status = MISSING; rec.alerts = [`تعذّر فتح الملف: ${e.message}`];
-    rec.source = "—"; return rec;
+    rec.source = "—"; rec.gaps = [...REQUIRED]; rec.from_qr = [];
+    return rec;
   }
 
   // 1) الباركود — المرجع
@@ -704,7 +949,8 @@ async function buildRecord(file, manual){
 
 /* ═══════════ الواجهة ═══════════ */
 const $ = s => document.querySelector(s);
-let STATE = {records: [], files: new Map(), manual: new Map(), open: null};
+// الملفات والتعبئة اليدوية مربوطة برقم ثابت لكل فاتورة — الاسم ممكن يتكرّر
+let STATE = {records: [], files: new Map(), manual: new Map(), open: null, nextId: 1};
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
   ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -716,6 +962,7 @@ const clearErr = () => $("#err").classList.remove("on");
 
 const drop = $("#drop"), picker = $("#picker");
 drop.onclick = () => picker.click();
+drop.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); picker.click(); } };
 picker.onchange = () => { if (picker.files.length) handle(picker.files); picker.value = ""; };
 ["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => {
   ev.preventDefault(); drop.classList.add("over"); }));
@@ -723,42 +970,90 @@ picker.onchange = () => { if (picker.files.length) handle(picker.files); picker.
   ev.preventDefault(); drop.classList.remove("over"); }));
 drop.addEventListener("drop", ev => { if (ev.dataTransfer.files.length) handle(ev.dataTransfer.files); });
 
+// فواتير تجريبية منشورة مع الموقع — عشان يجرّبه الزائر قبل فواتيره
+const DEMO = [
+  ["samples/01.jpg", "فاتورة_جرير.jpg"],
+  ["samples/02.jpg", "فاتورة_بنده.jpg"],
+  ["samples/03.jpg", "فاتورة_محل_بدون_باركود.jpg"],
+  ["samples/04.jpg", "فاتورة_الاتصالات.jpg"],
+];
+$("#btnDemo").onclick = async () => {
+  clearErr();
+  try {
+    const files = await Promise.all(DEMO.map(async ([src, name]) => {
+      const res = await fetch(src);
+      if (!res.ok) throw new Error(res.status);
+      return new File([await res.blob()], name, {type: "image/jpeg"});
+    }));
+    handle(files);
+  } catch { showErr("تعذّر تحميل الفواتير التجريبية — تأكد من الاتصال وحاول مرة ثانية"); }
+};
+
 async function handle(fileList){
   clearErr();
   const files = [...fileList].filter(f => IMAGE_RE.test(f.name) || PDF_RE.test(f.name));
   const skipped = [...fileList].length - files.length;
   if (!files.length) { showErr("ما فيه أي ملف بصيغة مدعومة"); return; }
 
-  drop.classList.add("hidden");
+  document.body.classList.add("working");
   $("#results").classList.add("hidden");
   $("#busy").classList.add("on");
+  window.scrollTo({top: 0, behavior: "smooth"});
 
-  for (let i = 0; i < files.length; i++) {
-    $("#busyText").textContent = `أقرأ ${i+1} من ${files.length} — ${files[i].name}`;
-    $("#barFill").style.width = `${((i)/files.length*100).toFixed(0)}%`;
-    await new Promise(r => setTimeout(r, 0));   // نخلي المتصفح يرسم
-    const rec = await buildRecord(files[i], null);
-    STATE.files.set(rec.file_name, files[i]);
-    STATE.records.push(rec);
+  try {
+    for (let i = 0; i < files.length; i++) {
+      $("#busyText").textContent = `أقرأ الفاتورة ${i+1} من ${files.length}`;
+      $("#busySub").textContent = files[i].name;
+      $("#barFill").style.width = `${(i/files.length*100).toFixed(0)}%`;
+      await new Promise(r => setTimeout(r, 0));   // نخلي المتصفح يرسم
+      const rec = await buildRecord(files[i], null);
+      rec.id = STATE.nextId++;
+      STATE.files.set(rec.id, files[i]);
+      STATE.records.push(rec);
+    }
+    findDuplicates(STATE.records);
+    if (skipped) showErr(`تجاهلت ${skipped} ملف بصيغة غير مدعومة`);
+  } catch (e) {
+    showErr("صار خطأ أثناء القراءة: " + e.message);
+  } finally {
+    document.body.classList.remove("working");
+    $("#busy").classList.remove("on");
+    $("#barFill").style.width = "0%";
+    refresh();
   }
-
-  findDuplicates(STATE.records);
-  $("#busy").classList.remove("on");
-  $("#barFill").style.width = "0%";
-  if (skipped) showErr(`تجاهلت ${skipped} ملف بصيغة غير مدعومة`);
-  refresh();
 }
 
 function refresh(){
+  const has = STATE.records.length > 0;
+  document.body.classList.toggle("has-results", has);
+  $("#results").classList.toggle("hidden", !has);
+  if (!has) return;
+
   const counts = {[OK]:0, [REVIEW]:0, [MISSING]:0};
   STATE.records.forEach(r => counts[r.status]++);
-  $("#cTotal").textContent = STATE.records.length;
-  $("#cOk").textContent = counts[OK];
-  $("#cWarn").textContent = counts[REVIEW];
-  $("#cBad").textContent = counts[MISSING];
+  const total = STATE.records.length;
+  const pct = n => `${(n/total*100).toFixed(1)}%`;
+  $("#cTotal").textContent = total;
+  $("#cOk").textContent = counts[OK];     $("#mOk").style.width = pct(counts[OK]);
+  $("#cWarn").textContent = counts[REVIEW]; $("#mWarn").style.width = pct(counts[REVIEW]);
+  $("#cBad").textContent = counts[MISSING]; $("#mBad").style.width = pct(counts[MISSING]);
+
+  const sum = k => {
+    const nums = STATE.records.map(r => parseAmount(r[k])).filter(n => n !== null);
+    return nums.length ? Math.round(nums.reduce((a, b) => a + b, 0)*100)/100 : null;
+  };
+  $("#sumNet").textContent = money(sum("net_amount"));
+  $("#sumVat").textContent = money(sum("vat_amount"));
+  $("#sumTotal").textContent = money(sum("total_amount"));
   render();
-  $("#results").classList.remove("hidden");
-  drop.classList.add("hidden");
+}
+
+/** خلية الملاحظات: أهم ملاحظة، وعدد الباقي — كاملة في تفاصيل الفاتورة */
+function notesCell(r){
+  if (!r.alerts.length) return '<span class="note-ok">✓ لا توجد ملاحظات</span>';
+  const more = r.alerts.length - 1;
+  return `<span class="note-text">${esc(r.alerts[0])}</span>${
+    more ? `<span class="more" title="اضغط لعرض كل الملاحظات">+${more}</span>` : ""}`;
 }
 
 function render(){
@@ -766,13 +1061,14 @@ function render(){
   body.innerHTML = "";
   STATE.records.forEach((r, i) => {
     const tr = document.createElement("tr");
-    tr.className = "main" + (STATE.open === i ? " open" : "");
+    tr.className = "main" + (STATE.open === r.id ? " open" : "");
     const cell = (k, t) => r.gaps.includes(k) ? '<span class="miss">ناقص</span>' : esc(t ?? "—");
     const qrTag = k => r.from_qr.includes(k) ? '<span class="tag">باركود</span>' : "";
     const amt = k => r.gaps.includes(k) ? '<span class="miss">ناقص</span>' : money(r[k]);
     tr.innerHTML = `
       <td class="caret">◀</td>
       <td><span class="pill ${CLS[r.status]}">${esc(r.status)}</span></td>
+      <td class="notes">${notesCell(r)}</td>
       <td class="mono">${cell("invoice_date", r.invoice_date)}${qrTag("invoice_date")}</td>
       <td class="wrapname">${cell("seller_name", r.seller_name)}${qrTag("seller_name")}</td>
       <td class="mono">${cell("seller_vat", r.seller_vat)}${qrTag("seller_vat")}</td>
@@ -783,20 +1079,20 @@ function render(){
       <td class="mono">${cell("buyer_vat", r.buyer_vat)}</td>
       <td class="mono">${cell("invoice_no", r.invoice_no)}</td>
       <td class="fname" title="${esc(r.file_name)}">${esc(r.file_name)}</td>`;
-    tr.onclick = () => { STATE.open = STATE.open === i ? null : i; render(); };
+    tr.onclick = () => { STATE.open = STATE.open === r.id ? null : r.id; render(); };
     body.appendChild(tr);
-    if (STATE.open === i) body.appendChild(detailRow(r, i));
+    if (STATE.open === r.id) body.appendChild(detailRow(r));
   });
 }
 
-function detailRow(r, i){
+function detailRow(r){
   const tr = document.createElement("tr");
   tr.className = "detail";
   const td = document.createElement("td");
-  td.colSpan = 12;
+  td.colSpan = 13;
 
   const fromQr = new Set(r.from_qr);
-  const alerts = r.alerts.length ? `<div class="section"><h4>التنبيهات</h4><ul class="alerts">${
+  const alerts = r.alerts.length ? `<div class="section"><h4>ملاحظات الفحص (${r.alerts.length})</h4><ul class="alerts">${
     r.alerts.map(a => `<li class="${r.status === MISSING ? "" : "soft"}">${esc(a)}</li>`).join("")
   }</ul></div>` : "";
 
@@ -813,7 +1109,7 @@ function detailRow(r, i){
 
   const verify = r.has_qr ? `<div class="section">
       <h4>مقارنة المطبوع بالباركود <span class="opt">— اختياري</span></h4>
-      <p class="note">اكتب المبالغ كما هي مطبوعة على الفاتورة. أي اختلاف عن الباركود يطلع تنبيه.</p>
+      <p class="note">اكتب المبالغ كما هي مطبوعة على الفاتورة. أي اختلاف عن الباركود يطلع ملاحظة.</p>
       <div class="grid">${["net_amount","vat_amount","total_amount"].filter(k => fromQr.has(k)).map(k =>
         `<div><label>${esc(LABEL[k])} — المطبوع</label>
           <input data-p="${k}" value="${esc(r.printed[k] ?? "")}"
@@ -829,7 +1125,7 @@ function detailRow(r, i){
         <div class="preview">${r.url
           ? `<a href="${r.url}" target="_blank" rel="noopener"><img src="${r.url}" alt="صورة الفاتورة"></a>`
           : '<div class="note" style="padding:30px">لا توجد معاينة</div>'}</div>
-        <p class="note" style="margin-top:8px">مصدر البيانات: ${esc(r.source)}</p>
+        <p class="note" style="margin-top:10px">مصدر البيانات: ${esc(r.source)}</p>
       </div>
       <div>
         ${alerts}
@@ -837,10 +1133,10 @@ function detailRow(r, i){
           ? `<span class="miss">ناقص منها ${r.gaps.length}</span>` : ""}</h4>
           <p class="note">الحقول المعلّمة «باركود» مقفلة ومقروءة من الباركود. الباقي اقرأه من الصورة.</p>
           <div class="grid">${reqFields}</div></div>
-        <div class="section"><h4>العناوين <span class="opt">— اختيارية، ما تطلع تنبيه لو ناقصة</span></h4>
+        <div class="section"><h4>العناوين <span class="opt">— اختيارية، ما تطلع ملاحظة لو ناقصة</span></h4>
           <div class="grid">${optFields}</div></div>
         ${verify}${checks}
-        <button class="primary" id="saveBtn">حفظ وإعادة الفحص</button>
+        <button class="btn primary" id="saveBtn">حفظ وإعادة الفحص</button>
       </div>
     </div>`;
 
@@ -851,7 +1147,7 @@ function detailRow(r, i){
 }
 
 async function save(rec, container){
-  const manual = STATE.manual.get(rec.file_name) || {};
+  const manual = STATE.manual.get(rec.id) || {};
   container.querySelectorAll("input[data-k]").forEach(inp => {
     if (inp.readOnly) return;                       // قيم الباركود ما تُرسل
     const v = inp.value.trim();
@@ -861,20 +1157,22 @@ async function save(rec, container){
     const v = inp.value.trim();
     if (v) manual[inp.dataset.p] = v; else delete manual[inp.dataset.p];
   });
-  STATE.manual.set(rec.file_name, manual);
+  STATE.manual.set(rec.id, manual);
 
   const btn = container.querySelector("#saveBtn");
   btn.disabled = true; btn.textContent = "أحفظ…";
-  const idx = STATE.records.indexOf(rec);
-  STATE.records[idx] = await buildRecord(STATE.files.get(rec.file_name), manual);
-  STATE.records.forEach(r => { r.alerts = r.alerts.filter(a => !a.startsWith("مكرّرة")); });
+  const fresh = await buildRecord(STATE.files.get(rec.id), manual);
+  fresh.id = rec.id;
+  if (rec.url && rec.url.startsWith("blob:")) URL.revokeObjectURL(rec.url);
+  STATE.records[STATE.records.indexOf(rec)] = fresh;
   findDuplicates(STATE.records);
   refresh();
 }
 
 /* ═══════════ تصدير الإكسل — سجل المشتريات المحلية ═══════════
    مطابق للنموذج المعتمد: ترويسة الجمعية، جدول باثني عشر عموداً،
-   ثم صف الإجمالي بمعادلات جمع.                                     */
+   ثم صف الإجمالي بمعادلات جمع. ملاحظات الفحص تبقى في الموقع،
+   وعمود «ملاحظات» يُترك فاضياً للجمعية كما في النموذج.            */
 const HEADER_LINES = [
   "المملكة العربية السعودية",
   "جمعية.....",
@@ -904,6 +1202,7 @@ const COLUMNS = [
   ["ملاحظات",               "_notes",       19.125,  ACC_INT,      "center", true],
 ];
 const SUM_KEYS = ["net_amount", "vat_amount", "total_amount"];
+const MANUAL_KEYS = ["_description", "_entry_no", "_notes"];   // تُعبّأ يدوياً
 const HEADER_NO_WRAP = ["seller_name"];
 const RIGHT_MEDIUM = ["total_amount", "_notes"];
 const LAST_KEY = "_notes";
@@ -913,7 +1212,6 @@ const MIN_ROWS = 13, HEADER_ROW = 7, FIRST_ROW = 8;
 const TH_FILL = {type:"pattern", pattern:"solid", fgColor:{theme:8, tint:0.8}};
 const TD_FILL = {type:"pattern", pattern:"solid", fgColor:{theme:0}};
 const SUM_FILL = {type:"pattern", pattern:"solid", fgColor:{argb:"FFFFFF00"}};
-const STATUS_NOTE = {[OK]:"", [REVIEW]:"تحتاج مراجعة", [MISSING]:"ناقصة"};
 
 function periodLine(records){
   const dates = records.map(r => formatDate(r.invoice_date))
@@ -928,18 +1226,11 @@ function vatRate(r){
   return (net && vat !== null && net > 0) ? Math.round(vat/net*10000)/10000 : 0.15;
 }
 
-function noteFor(r){
-  const status = STATUS_NOTE[r.status] || "";
-  if (!status) return null;
-  return (r.alerts && r.alerts.length) ? `${status} — ${r.alerts[0]}` : status;
-}
-
 function cellValue(rec, key, index){
   if (key === "_index") return index;
   if (!rec) return key === "_vat_rate" ? 0.15 : null;
   if (key === "_vat_rate") return vatRate(rec);
-  if (key === "_notes") return noteFor(rec);
-  if (key === "_description" || key === "_entry_no") return null;
+  if (MANUAL_KEYS.includes(key)) return null;
   const v = rec[key];
   if (key === "invoice_date") {
     const s = formatDate(v);
@@ -967,8 +1258,8 @@ function borderFor(key, col, isHeader, isFirst, isLast){
 }
 
 $("#btnExcel").onclick = async () => {
-  const btn = $("#btnExcel");
-  btn.disabled = true; btn.textContent = "أجهّز الملف…";
+  const btn = $("#btnExcel"), label = btn.querySelector("span");
+  btn.disabled = true; label.textContent = "أجهّز الملف…";
   try {
     const records = STATE.records;
     const wb = new ExcelJS.Workbook();
@@ -1061,17 +1352,16 @@ $("#btnExcel").onclick = async () => {
   } catch (e) {
     showErr("تعذّر توليد الإكسل: " + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = "⬇ تحميل ملف الإكسل";
+    btn.disabled = false; label.textContent = "تحميل سجل المشتريات (إكسل)";
   }
 };
 
 $("#btnMore").onclick = () => picker.click();
 $("#btnReset").onclick = () => {
   STATE.records.forEach(r => { if (r.url && r.url.startsWith("blob:")) URL.revokeObjectURL(r.url); });
-  STATE = {records: [], files: new Map(), manual: new Map(), open: null};
-  $("#results").classList.add("hidden");
-  drop.classList.remove("hidden");
+  STATE = {records: [], files: new Map(), manual: new Map(), open: null, nextId: 1};
   clearErr();
+  refresh();
 };
 </script>
 </body>

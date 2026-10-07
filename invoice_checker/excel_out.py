@@ -3,13 +3,13 @@
 
 النموذج مطابق خلية بخلية للنموذج المعتمد: ترويسة الجمعية، ثم جدول
 باثني عشر عموداً لكل عمود تنسيقه وحدوده، ثم صف الإجمالي بمعادلات جمع.
+ملاحظات الفحص تظهر في الواجهة فقط، وعمود «ملاحظات» يُترك للجمعية.
 """
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from . import validate
-from .validate import MISSING, OK, REVIEW
 
 # ————— نصوص الترويسة —————
 HEADER_LINES = [
@@ -44,6 +44,7 @@ COLUMNS = [
     ("ملاحظات",               "_notes",       19.125,  ACC_INT,   "center", True),
 ]
 SUM_KEYS = ("net_amount", "vat_amount", "total_amount")
+MANUAL_KEYS = ("_description", "_entry_no", "_notes")   # تُعبّأ يدوياً
 
 # عناوين بلا التفاف نص (عمود «اسم المورد» فقط)، وأعمدة حدّها الأيمن عريض
 HEADER_NO_WRAP = {"seller_name"}
@@ -72,8 +73,6 @@ CENTER = Alignment(horizontal="center", vertical="center")
 ROW_HEIGHTS = {1: 25.15, 2: 25.15, 3: 25.15, 4: 25.15, 5: 25.15, 6: 38.45, 7: 51.6}
 DATA_ROW_HEIGHT = 30.0
 
-STATUS_NOTE = {OK: "", REVIEW: "تحتاج مراجعة", MISSING: "ناقصة"}
-
 
 def _period_line(records):
     """سطر الفترة، مبني من أقدم وأحدث تاريخ فاتورة."""
@@ -93,15 +92,6 @@ def _vat_rate(rec):
     return 0.15
 
 
-def _notes(rec):
-    """عمود الملاحظات: حالة الفحص وأهم تنبيه."""
-    status = STATUS_NOTE.get(rec.get("status"), "")
-    if not status:
-        return None
-    alerts = rec.get("alerts") or []
-    return f"{status} — {alerts[0]}" if alerts else status
-
-
 def _value(rec, key, index):
     if key == "_index":
         return index
@@ -109,10 +99,8 @@ def _value(rec, key, index):
         return 0.15 if key == "_vat_rate" else None
     if key == "_vat_rate":
         return _vat_rate(rec)
-    if key == "_notes":
-        return _notes(rec)
-    if key in ("_description", "_entry_no"):
-        return None                       # تُعبّأ يدوياً
+    if key in MANUAL_KEYS:
+        return None
     value = rec.get(key)
     if key == "invoice_date":
         return validate.parse_date(value) or validate.clean_text(value)

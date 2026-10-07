@@ -247,19 +247,34 @@ def check(record):
     return status, alerts, checks
 
 
+DUPLICATE = "مكرّرة"
+
+
 def find_duplicates(records):
-    """يعلّم الفواتير المكرّرة. يعدّل السجلات في مكانها."""
+    """يعلّم الفواتير المكرّرة. يعدّل السجلات في مكانها.
+
+    يُستدعى بعد كل تعديل من الواجهة، فيمسح علامة المرة السابقة أولاً.
+    """
     seen = {}
     for rec in records:
+        rec["alerts"] = [a for a in rec.get("alerts", []) if not a.startswith(DUPLICATE)]
+        # «تحتاج مراجعة» بدون أي ملاحظة ثانية = كان التكرار سببها الوحيد
+        if rec.get("status") == REVIEW and not rec["alerts"]:
+            rec["status"] = OK
+
+        # نفس المورد ونفس رقم الفاتورة، أو نفس باركود الزاتكا (فيه الوقت والمبلغ فما يتكرّر)
         vat = clean_vat_number(rec.get("seller_vat"))
         no = clean_text(rec.get("invoice_no"))
-        key = (vat, no) if vat and no else (rec.get("qr_raw") or None,)
-        if key == (None,):
-            continue
-        if key in seen:
-            note = f"مكرّرة — نفس فاتورة «{seen[key]}»"
-            rec.setdefault("alerts", []).append(note)
+        keys = []
+        if vat and no:
+            keys.append(("no", vat, no))
+        if rec.get("qr_raw") and (rec.get("has_qr") or not keys):
+            keys.append(("qr", rec["qr_raw"]))
+
+        first = next((seen[k] for k in keys if k in seen), None)
+        if first:
+            rec["alerts"].append(f"{DUPLICATE} — نفس فاتورة «{first}»")
             if rec.get("status") == OK:
                 rec["status"] = REVIEW
-        else:
-            seen[key] = rec.get("file_name")
+        for k in keys:
+            seen.setdefault(k, first or rec.get("file_name"))
