@@ -80,8 +80,7 @@ pip install -r requirements.txt
 
 ### الموقع (بدون تنصيب)
 
-افتح **[sa-94.github.io/saudi-invoice-checker](https://sa-94.github.io/saudi-invoice-checker/)** واسحب الفواتير عليه. كل شي يتم داخل المتصفح،
-وفيه زر «جرّبه على فواتير تجريبية» لو تبي تشوفه قبل فواتيرك.
+افتح **[sa-94.github.io/saudi-invoice-checker](https://sa-94.github.io/saudi-invoice-checker/)** واسحب الفواتير عليه. كل شي يتم داخل المتصفح.
 
 النسخة المكتبية أدناه أقوى في حالتين: صور الجوال شديدة التشويش، وقراءة النصوص من الفواتير اللي ما فيها باركود.
 

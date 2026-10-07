@@ -334,7 +334,7 @@ function render(){
     const qrTag = key => r.from_qr.includes(key) ? '<span class="tag">باركود</span>' : "";
 
     tr.innerHTML = `
-      <td class="caret">◀</td>
+      <td><span class="caret">◀</span></td>
       <td><span class="pill ${CLS[r.status]}">${esc(r.status)}</span></td>
       <td class="notes">${notesCell(r)}</td>
       <td class="mono">${cell("invoice_date", r.invoice_date)}${qrTag("invoice_date")}</td>
